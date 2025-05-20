@@ -1,4 +1,5 @@
 // pages/auth/login.tsx
+'use client';
 import {
     Container,
     Box,
@@ -11,21 +12,45 @@ import {
     IconButton,
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
-import { useRouter } from 'next/router';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 export default function LoginPage() {
     const router = useRouter();
     const [showPassword, setShowPassword] = useState(false);
+    const [showPasswordConf, setShowPasswordConf] = useState(false);
+    const [error, setError] = useState('');
     const [formData, setFormData] = useState({
-        email: '',
+        username: '',
         password: '',
+        confirmPassword: '',
     });
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        // Логика входа
-        router.push('/');
+        if(formData.password.length < 8) {
+            setError('Длина пароля должна быть больше 7 символов');
+            return;
+        }
+        if(formData.confirmPassword !== formData.password) {
+            setError('Пароли не совпадают');
+            return;
+        }
+
+        const res = await fetch('/api/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                username: formData.username,
+                password: formData.password,
+            }),
+        });
+        if (res.ok) {
+            router.push('/');
+        } else {
+            const data = await res.json();
+            setError(data.message || 'Ошибка регистрации');
+        }
     };
 
     return (
@@ -55,15 +80,16 @@ export default function LoginPage() {
                     sx={{ width: '100%' }}
                 >
                     <TextField
-                        label="Email"
+                        label="Имя пользователя"
                         variant="outlined"
                         fullWidth
                         margin="normal"
                         required
-                        value={formData.email}
-                        onChange={(e) =>
-                            setFormData({ ...formData, email: e.target.value })
-                        }
+                        value={formData.username}
+                        onChange={(e) => {
+                            setFormData({ ...formData, username: e.target.value })
+                            if(error !== '') setError('');
+                        }}
                     />
 
                     <TextField
@@ -74,12 +100,12 @@ export default function LoginPage() {
                         margin="normal"
                         required
                         value={formData.password}
-                        onChange={(e) =>
+                        onChange={(e) => {
                             setFormData({
                                 ...formData,
                                 password: e.target.value,
                             })
-                        }
+                        }}
                         InputProps={{
                             endAdornment: (
                                 <InputAdornment position="end">
@@ -100,6 +126,47 @@ export default function LoginPage() {
                         }}
                     />
 
+                    <TextField
+                        label="Подтвердите пароль"
+                        type={showPasswordConf ? 'text' : 'password'}
+                        variant="outlined"
+                        fullWidth
+                        margin="normal"
+                        required
+                        value={formData.confirmPassword}
+                        onChange={(e) => {
+                            setFormData({
+                                ...formData,
+                                confirmPassword: e.target.value,
+                            })
+                            if(error !== '') setError('');
+                        }}
+                        InputProps={{
+                            endAdornment: (
+                                <InputAdornment position="end">
+                                    <IconButton
+                                        onClick={() =>
+                                            setShowPasswordConf(!showPasswordConf)
+                                        }
+                                        edge="end"
+                                    >
+                                        {showPasswordConf ? (
+                                            <VisibilityOff />
+                                        ) : (
+                                            <Visibility />
+                                        )}
+                                    </IconButton>
+                                </InputAdornment>
+                            ),
+                        }}
+                    />
+
+                    {error && (
+                        <Typography color="error" variant="body2" sx={{ mt: 1 }}>
+                            {error}
+                        </Typography>
+                    )}
+
                     <Button
                         type="submit"
                         fullWidth
@@ -116,25 +183,11 @@ export default function LoginPage() {
                             justifyContent: 'space-between',
                         }}
                     >
-                        <Link href="/auth/reset-password" variant="body2">
-                            Забыли пароль?
-                        </Link>
-                        <Link href="/auth/register" variant="body2">
-                            Нет аккаунта? Зарегистрируйтесь
+                        <Link href="/auth/login" variant="body2">
+                            Есть аккаунт? Войдите
                         </Link>
                     </Box>
                 </Box>
-
-                <Divider sx={{ my: 3, width: '100%' }}>или</Divider>
-
-                <Button
-                    variant="outlined"
-                    fullWidth
-                    startIcon={<Visibility />}
-                    sx={{ mb: 2 }}
-                >
-                    Войти через Google
-                </Button>
             </Box>
         </Container>
     );
