@@ -1,4 +1,4 @@
-'use client';
+"use client";
 import {
   Container,
   Box,
@@ -20,8 +20,8 @@ import {
   Stack,
   Avatar,
   ListItemAvatar,
-  ListItemButton
-} from '@mui/material';
+  ListItemButton,
+} from "@mui/material";
 import {
   Add,
   Quiz,
@@ -46,106 +46,115 @@ export default function DisciplinePage() {
   const router = useRouter();
   const [tabValue, setTabValue] = useState(0);
   const [editMode, setEditMode] = useState(false);
-  const [expandedChapters, setExpandedChapters] = useState<Record<number, boolean>>({
+  const [expandedChapters, setExpandedChapters] = useState<
+    Record<number, boolean>
+  >({
     1: true,
     2: true,
-    3: true
+    3: true,
   });
 
   // Mock data
   const [discipline, setDiscipline] = useState({
     id: 1,
-    name: 'Электромеханика',
-    description: 'Основы электромеханических систем и устройств',
+    name: "Электромеханика",
+    description: "Основы электромеханических систем и устройств",
     groups: [
-      { id: 1, name: 'EM-201', students: 25 },
-      { id: 2, name: 'EM-202', students: 20 }
+      { id: 1, name: "EM-201", students: 25 },
+      { id: 2, name: "EM-202", students: 20 },
     ],
     chapters: [
       {
         id: 1,
-        title: 'Глава 1: Основные понятия электромеханики',
+        title: "Глава 1: Основные понятия электромеханики",
         tests: [
-          { id: 1, name: 'Тест по базовым понятиям' },
-          { id: 2, name: 'Контрольная работа №1' }
-        ]
+          { id: 1, name: "Тест по базовым понятиям" },
+          { id: 2, name: "Контрольная работа №1" },
+        ],
       },
       {
         id: 2,
-        title: 'Глава 2: Электрические машины',
+        title: "Глава 2: Электрические машины",
         tests: [
-          { id: 3, name: 'Тест по трансформаторам' },
-          { id: 4, name: 'Лабораторная работа' }
-        ]
+          { id: 3, name: "Тест по трансформаторам" },
+          { id: 4, name: "Лабораторная работа" },
+        ],
       },
       {
         id: 3,
-        title: 'Глава 3: Автоматизированные системы',
-        tests: []
-      }
-    ]
+        title: "Глава 3: Автоматизированные системы",
+        tests: [],
+      },
+    ],
   });
 
   const toggleChapter = (chapterId: number) => {
-    setExpandedChapters(prev => ({
+    setExpandedChapters((prev) => ({
       ...prev,
-      [chapterId]: !prev[chapterId]
+      [chapterId]: !prev[chapterId],
     }));
   };
 
   const onDragEnd = (result: any) => {
     if (!result.destination) return;
-    
-    if (result.type === 'CHAPTERS') {
+
+    if (result.type === "CHAPTERS") {
       const items = Array.from(discipline.chapters);
       const [reorderedItem] = items.splice(result.source.index, 1);
       items.splice(result.destination.index, 0, reorderedItem);
-      setDiscipline({...discipline, chapters: items});
-    } else if (result.type === 'TESTS') {
-      const chapterIndex = discipline.chapters.findIndex(ch => ch.id.toString() === result.destination.droppableId);
+      setDiscipline({ ...discipline, chapters: items });
+    } else if (result.type === "TESTS") {
+      const chapterIndex = discipline.chapters.findIndex(
+        (ch) => ch.id.toString() === result.destination.droppableId
+      );
       if (chapterIndex === -1) return;
-      
+
       const chapter = discipline.chapters[chapterIndex];
       const items = Array.from(chapter.tests);
       const [reorderedItem] = items.splice(result.source.index, 1);
       items.splice(result.destination.index, 0, reorderedItem);
-      
+
       const newChapters = [...discipline.chapters];
       newChapters[chapterIndex].tests = items;
-      setDiscipline({...discipline, chapters: newChapters});
+      setDiscipline({ ...discipline, chapters: newChapters });
     }
   };
 
   const addChapter = () => {
     const newChapter = {
-      id: Math.max(...discipline.chapters.map(c => c.id)) + 1,
+      id: Math.max(...discipline.chapters.map((c) => c.id)) + 1,
       title: `Глава ${discipline.chapters.length + 1}: Новая глава`,
-      tests: []
+      tests: [],
     };
     setDiscipline({
-      ...discipline, 
-      chapters: [...discipline.chapters, newChapter]
+      ...discipline,
+      chapters: [...discipline.chapters, newChapter],
     });
-    setExpandedChapters(prev => ({...prev, [newChapter.id]: true}));
+    setExpandedChapters((prev) => ({ ...prev, [newChapter.id]: true }));
   };
 
   const addTest = (chapterId: number) => {
-    const chapterIndex = discipline.chapters.findIndex(c => c.id === chapterId);
+    const chapterIndex = discipline.chapters.findIndex(
+      (c) => c.id === chapterId
+    );
     if (chapterIndex === -1) return;
-    
+
     const newTest = {
-      id: Math.max(...discipline.chapters.flatMap(c => c.tests).map(t => t.id)) + 1,
-      name: 'Новый тест'
+      id:
+        Math.max(
+          ...discipline.chapters.flatMap((c) => c.tests).map((t) => t.id)
+        ) + 1,
+      name: "Новый тест",
     };
-    
+
     const newChapters = [...discipline.chapters];
     newChapters[chapterIndex].tests.push(newTest);
-    setDiscipline({...discipline, chapters: newChapters});
+    setDiscipline({ ...discipline, chapters: newChapters });
   };
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
+      <Box sx={{ display: "flex", alignItems: "center", mb: 4 }}>
         <IconButton onClick={() => router.back()} sx={{ mr: 2 }}>
           <ArrowBack />
         </IconButton>
@@ -155,14 +164,11 @@ export default function DisciplinePage() {
         <Box sx={{ flexGrow: 1 }} />
         {editMode ? (
           <Stack direction="row" spacing={2}>
-            <Button 
-              startIcon={<Close />}
-              onClick={() => setEditMode(false)}
-            >
+            <Button startIcon={<Close />} onClick={() => setEditMode(false)}>
               Отменить
             </Button>
-            <Button 
-              variant="contained" 
+            <Button
+              variant="contained"
               startIcon={<Check />}
               onClick={() => setEditMode(false)}
             >
@@ -170,10 +176,7 @@ export default function DisciplinePage() {
             </Button>
           </Stack>
         ) : (
-          <Button 
-            startIcon={<Edit />}
-            onClick={() => setEditMode(true)}
-          >
+          <Button startIcon={<Edit />} onClick={() => setEditMode(true)}>
             Редактировать
           </Button>
         )}
@@ -201,9 +204,9 @@ export default function DisciplinePage() {
                 {(provided) => (
                   <div {...provided.droppableProps} ref={provided.innerRef}>
                     {discipline.chapters.map((chapter, chapterIndex) => (
-                      <Draggable 
-                        key={chapter.id} 
-                        draggableId={`chapter-${chapter.id}`} 
+                      <Draggable
+                        key={chapter.id}
+                        draggableId={`chapter-${chapter.id}`}
                         index={chapterIndex}
                         isDragDisabled={!editMode}
                       >
@@ -215,12 +218,14 @@ export default function DisciplinePage() {
                             sx={{ mb: 2 }}
                           >
                             <ListItemButton
-                              onClick={() => !editMode && toggleChapter(chapter.id)}
+                              onClick={() =>
+                                !editMode && toggleChapter(chapter.id)
+                              }
                               sx={{
                                 p: 2,
-                                bgcolor: 'background.paper',
-                                borderBottom: '1px solid',
-                                borderColor: 'divider'
+                                bgcolor: "background.paper",
+                                borderBottom: "1px solid",
+                                borderColor: "divider",
                               }}
                             >
                               {editMode && (
@@ -228,26 +233,33 @@ export default function DisciplinePage() {
                                   <DragHandle sx={{ mr: 2 }} />
                                 </div>
                               )}
-                              <Folder sx={{ mr: 2, color: 'text.secondary' }} />
-                              <ListItemText
-                                primary={chapter.title}
-                              />
-                              {expandedChapters[chapter.id] ? <ExpandLess /> : <ExpandMore />}
+                              <Folder sx={{ mr: 2, color: "text.secondary" }} />
+                              <ListItemText primary={chapter.title} />
+                              {expandedChapters[chapter.id] ? (
+                                <ExpandLess />
+                              ) : (
+                                <ExpandMore />
+                              )}
                             </ListItemButton>
 
                             <Collapse in={expandedChapters[chapter.id]}>
-                              <Droppable droppableId={chapter.id.toString()} type="TESTS">
+                              <Droppable
+                                droppableId={chapter.id.toString()}
+                                type="TESTS"
+                              >
                                 {(provided) => (
                                   <div
                                     {...provided.droppableProps}
                                     ref={provided.innerRef}
-                                    style={{ paddingLeft: editMode ? '40px' : '32px' }}
+                                    style={{
+                                      paddingLeft: editMode ? "40px" : "32px",
+                                    }}
                                   >
                                     <List dense disablePadding>
                                       {chapter.tests.map((test, testIndex) => (
-                                        <Draggable 
-                                          key={test.id} 
-                                          draggableId={`test-${test.id}`} 
+                                        <Draggable
+                                          key={test.id}
+                                          draggableId={`test-${test.id}`}
                                           index={testIndex}
                                           isDragDisabled={!editMode}
                                         >
@@ -256,27 +268,42 @@ export default function DisciplinePage() {
                                               ref={provided.innerRef}
                                               {...provided.draggableProps}
                                               elevation={0}
-                                              sx={{ 
-                                                borderLeft: '2px solid',
-                                                borderColor: 'divider',
-                                                mb: 0.5
+                                              sx={{
+                                                borderLeft: "2px solid",
+                                                borderColor: "divider",
+                                                mb: 0.5,
                                               }}
                                             >
-                                              <ListItemButton 
-                                                onClick={() => !editMode && router.push(`/teacher/tests/${test.id}`)}
+                                              <ListItemButton
+                                                onClick={() =>
+                                                  !editMode &&
+                                                  router.push(
+                                                    `/teacher/tests/${test.id}`
+                                                  )
+                                                }
                                               >
                                                 {editMode && (
-                                                  <div {...provided.dragHandleProps}>
-                                                    <DragHandle sx={{ mr: 2 }} />
+                                                  <div
+                                                    {...provided.dragHandleProps}
+                                                  >
+                                                    <DragHandle
+                                                      sx={{ mr: 2 }}
+                                                    />
                                                   </div>
                                                 )}
-                                                <Avatar sx={{ 
-                                                  bgcolor: 'background.default', 
-                                                  width: 24, 
-                                                  height: 24,
-                                                  mr: 2
-                                                }}>
-                                                  <InsertDriveFile color="primary" fontSize="small" />
+                                                <Avatar
+                                                  sx={{
+                                                    bgcolor:
+                                                      "background.default",
+                                                    width: 24,
+                                                    height: 24,
+                                                    mr: 2,
+                                                  }}
+                                                >
+                                                  <InsertDriveFile
+                                                    color="primary"
+                                                    fontSize="small"
+                                                  />
                                                 </Avatar>
                                                 <ListItemText
                                                   primary={test.name}
@@ -291,11 +318,11 @@ export default function DisciplinePage() {
                                   </div>
                                 )}
                               </Droppable>
-                              
+
                               {editMode && (
                                 <Box sx={{ pl: 4, pb: 1 }}>
-                                  <Button 
-                                    size="small" 
+                                  <Button
+                                    size="small"
                                     startIcon={<Add />}
                                     onClick={() => addTest(chapter.id)}
                                   >
@@ -316,9 +343,9 @@ export default function DisciplinePage() {
 
             {editMode && (
               <Box sx={{ p: 2 }}>
-                <Button 
-                  fullWidth 
-                  variant="outlined" 
+                <Button
+                  fullWidth
+                  variant="outlined"
                   startIcon={<Add />}
                   onClick={addChapter}
                 >
@@ -338,7 +365,7 @@ export default function DisciplinePage() {
             </Typography>
             <List>
               {discipline.groups.map((group) => (
-                <ListItem 
+                <ListItem
                   key={group.id}
                   secondaryAction={
                     <Button size="small" href={`/teacher/groups/${group.id}`}>
