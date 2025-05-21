@@ -3,22 +3,20 @@ import { db } from '@lib/db'
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string | number} }
+  context: any
 ) {
   try {
-    let { id } = await params;
-    if(typeof id === 'string') {
-        id = parseInt(id)
-    }
+    let { id } = context.params; 
+    let nid = parseInt(id)
 
-    if (isNaN(id)) {
+    if (isNaN(nid)) {
       return NextResponse.json(
         { error: 'Invalid ID format' },
         { status: 400 }
       )
     }
 
-    const subject = db.prepare('SELECT * FROM Subjects WHERE id = ?').get(id)
+    const subject = db.prepare('SELECT * FROM Subjects WHERE id = ?').get(nid)
 
     if (!subject) {
       return NextResponse.json(
