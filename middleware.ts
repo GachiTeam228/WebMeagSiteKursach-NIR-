@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken';
 const SECRET = process.env.JWT_SECRET || 'secret123';
 
 export function middleware(req: NextRequest) {
-    console.log('\n\nssss\n\n');
+  console.log('\n\nssss\n\n');
   const { pathname } = req.nextUrl;
   const token = req.cookies.get('token')?.value;
 

@@ -84,7 +84,7 @@ export default function CreateTestPage() {
             <Card elevation={3} sx={{ mb: 4 }}>
                 <CardContent>
                     <Grid container spacing={3}>
-                        <Grid item xs={12} md={6}>
+                        <Grid size={{xs: 12, md: 6}}>
                             <TextField
                                 label="Название теста"
                                 fullWidth
@@ -97,7 +97,7 @@ export default function CreateTestPage() {
                                 }
                             />
                         </Grid>
-                        <Grid item xs={12} md={6}>
+                        <Grid size={{xs: 12, md: 6}}>
                             <FormControl fullWidth>
                                 <InputLabel>Длительность (мин)</InputLabel>
                                 <Select
@@ -118,7 +118,7 @@ export default function CreateTestPage() {
                                 </Select>
                             </FormControl>
                         </Grid>
-                        <Grid item xs={12}>
+                        <Grid size={12}>
                             <TextField
                                 label="Описание теста"
                                 fullWidth
