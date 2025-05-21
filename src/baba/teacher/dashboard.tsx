@@ -115,7 +115,7 @@ export default function TeacherDashboard() {
 
             {tabValue === 0 && (
                 <Grid container spacing={3}>
-                    <Grid item xs={12} md={8}>
+                    <Grid size={{ xs: 12, md: 8 }}>
                         <Card elevation={3}>
                             <CardContent>
                                 <Box
@@ -172,7 +172,7 @@ export default function TeacherDashboard() {
                         </Card>
                     </Grid>
 
-                    <Grid item xs={12} md={4}>
+                    <Grid size={{ xs: 12, md: 4 }}>
                         <Card elevation={3}>
                             <CardContent>
                                 <Typography
@@ -207,7 +207,7 @@ export default function TeacherDashboard() {
             {tabValue === 1 && (
                 <Grid container spacing={3}>
                     {disciplines.map((discipline) => (
-                        <Grid item xs={12} sm={6} md={4} key={discipline.id}>
+                        <Grid size={{ xs: 12, sm: 6, md: 4 }} key={discipline.id}>
                             <Card elevation={3}>
                                 <CardContent>
                                     <Box

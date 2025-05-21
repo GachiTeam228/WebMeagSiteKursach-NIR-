@@ -38,13 +38,12 @@ import {
   Close,
   Check
 } from '@mui/icons-material';
-import { useRouter } from 'next/router';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 
 export default function DisciplinePage() {
   const router = useRouter();
-  const { id } = router.query;
   const [tabValue, setTabValue] = useState(0);
   const [editMode, setEditMode] = useState(false);
   const [expandedChapters, setExpandedChapters] = useState<Record<number, boolean>>({
