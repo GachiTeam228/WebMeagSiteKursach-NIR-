@@ -14,9 +14,12 @@ interface User {
     is_active: boolean
 }
 
-const SECRET = process.env.JWT_SECRET || 'secret123';
+const SECRET = process.env.JWT_SECRET;
 
 export async function POST(req: Request) {
+  if (!SECRET) {
+    throw new Error('no jwt')
+  }
   try {
     const { username, password } = await req.json();
 

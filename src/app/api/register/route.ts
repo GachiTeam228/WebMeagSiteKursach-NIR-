@@ -4,9 +4,12 @@ import { cookies } from 'next/headers'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 
-const SECRET = process.env.JWT_SECRET || '';
+const SECRET = process.env.JWT_SECRET;
 
 export async function POST(request: Request) {
+  if (!SECRET) {
+    throw new Error('no jwt')
+  }
   try {
     const { username, password, firstName, lastName } = await request.json()
 
@@ -25,8 +28,8 @@ export async function POST(request: Request) {
 
     // Вставка нового пользователя
     db.prepare(`
-      INSERT INTO Users (username, password_hash, first_name, last_name)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO Users (username, password_hash, first_name, last_name, role_id)
+      VALUES (?, ?, ?, ?, 1)
     `).run(username, password_hash, firstName || null, lastName || null)
 
     // Создание токена
