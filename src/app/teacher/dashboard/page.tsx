@@ -136,7 +136,7 @@ export default function TeacherDashboard() {
                                     <Button
                                         size="small"
                                         startIcon={<Add />}
-                                        href="/teacher/tests/create"
+                                        href="/teacher/newTest"
                                     >
                                         Создать тест
                                     </Button>
@@ -258,7 +258,7 @@ export default function TeacherDashboard() {
                                 <CardActions>
                                     <Button
                                         size="small"
-                                        href={`/teacher/disciplines/${discipline.id}`}
+                                        href={`/discipline/${discipline.id}`}
                                     >
                                         Перейти
                                     </Button>
