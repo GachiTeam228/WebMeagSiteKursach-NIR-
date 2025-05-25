@@ -122,14 +122,14 @@ export async function POST(
         `UPDATE UserAnswers SET answer_option_id = ?, is_correct = ?, answered_at = datetime('now') WHERE id = ?`
       ).run(answer_option_id, is_correct, existingAnswer.id);
 
-      return NextResponse.json({ message: 'Answer updated', is_correct });
+      return NextResponse.json({ message: 'Answer updated' });
     } else {
       db.prepare(
         `INSERT INTO UserAnswers (attempt_id, question_id, answer_option_id, is_correct, answered_at)
          VALUES (?, ?, ?, ?, datetime('now'))`
       ).run(attempt.id, question_id, answer_option_id, is_correct);
 
-      return NextResponse.json({ message: 'Answer saved', is_correct });
+      return NextResponse.json({ message: 'Answer saved' });
     }
   } catch (error) {
     console.error(error);

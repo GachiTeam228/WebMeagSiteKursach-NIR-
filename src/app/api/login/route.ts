@@ -27,10 +27,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'Имя пользователя и пароль обязательны' }, { status: 400 });
     }
 
-    // Поиск пользователя в БД
+    // Поиск пользователя в БД (добавим is_admin)
     const user = db
-      .prepare('SELECT * FROM Users WHERE username = ? AND is_active = 1')
-      .get(username) as User;
+      .prepare(`SELECT Users.*, Roles.is_admin
+                FROM Users
+                LEFT JOIN Roles ON Users.role_id = Roles.id
+                WHERE Users.username = ? AND Users.is_active = 1`)
+      .get(username) as User & { is_admin: boolean };
 
     if (!user) {
       return NextResponse.json({ message: 'Пользователь не найден или неактивен' }, { status: 401 });
@@ -54,7 +57,7 @@ export async function POST(req: Request) {
       secure: process.env.NODE_ENV === 'production', // только https в проде
     });
 
-    return NextResponse.json({ message: 'Вход успешен' }, { status: 200 });
+    return NextResponse.json({ message: 'Вход успешен', is_admin: !!user.is_admin }, { status: 200 });
 
   } catch (err) {
     console.error('Ошибка логина:', err);
