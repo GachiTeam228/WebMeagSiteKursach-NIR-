@@ -38,6 +38,14 @@ input[type="number"] {
   -moz-appearance: textfield;
 }
 
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px #ffffff inset !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+
 @media (prefers-color-scheme: dark) {
   html {
     color-scheme: dark;
