@@ -34,10 +34,11 @@ export default function LoginPage() {
         password: formData.password,
       }),
     });
+    const data = await res.json();
     if (res.ok) {
-      router.push("/dashboard");
+      console.log(data.is_admin, !!data.is_admin);
+      router.push(data.is_admin ? "/teacher/dashboard" : "/dashboard");
     } else {
-      const data = await res.json();
       setError(data.message || "Ошибка регистрации");
     }
   };
