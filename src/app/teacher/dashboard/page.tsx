@@ -28,6 +28,9 @@ import {
   DialogActions,
   Menu,
   MenuItem,
+  CircularProgress,
+  Snackbar,
+  Alert,
 } from "@mui/material";
 import {
   Add,
@@ -44,8 +47,28 @@ import {
   Lock,
   Close,
 } from "@mui/icons-material";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format, differenceInSeconds } from "date-fns";
+
+interface Student {
+  id: number;
+  username: string;
+  first_name: string;
+  last_name: string;
+  email?: string;
+}
+
+interface Group {
+  id: number;
+  name: string;
+  students: Student[];
+}
+
+interface Discipline {
+  id: number;
+  name: string;
+  tests: number;
+}
 
 export default function TeacherDashboard() {
   const [tabValue, setTabValue] = useState(0);
@@ -60,33 +83,83 @@ export default function TeacherDashboard() {
   const [userMenuAnchorEl, setUserMenuAnchorEl] = useState<null | HTMLElement>(
     null
   );
+  const [newGroupList, setNewGroupList] = useState<string>("");
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  const [isLoadingGroups, setIsLoadingGroups] = useState(false);
+  const [isLoadingDisciplines, setIsLoadingDisciplines] = useState(false);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success" as "success" | "error",
+  });
+  const [disciplines, setDisciplines] = useState<Discipline[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
 
-  // Данные (аналогично вашему коду)
-  const disciplines = [
-    {
-      id: 1,
-      name: "Алгоритмы и структуры данных",
-      groups: [
-        {
-          id: 1,
-          name: "CS-201",
-          students: [
-            { id: 1, name: "Иванов Иван", email: "ivanov@bmstu.ru" },
-            { id: 2, name: "Петров Петр", email: "petrov@bmstu.ru" },
-          ],
-        },
-        {
-          id: 2,
-          name: "CS-202",
-          students: [
-            { id: 3, name: "Сидоров Сидор", email: "sidorov@bmstu.ru" },
-          ],
-        },
-      ],
-      tests: 5,
-    },
-    // ... остальные дисциплины
-  ];
+  // Загрузка дисциплин с бэкенда
+  useEffect(() => {
+    if (tabValue !== 1) return;
+
+    const fetchDisciplines = async () => {
+      setIsLoadingDisciplines(true);
+      try {
+        const response = await fetch("/api/disciplines/my");
+        if (!response.ok) {
+          throw new Error("Failed to fetch disciplines");
+        }
+        const data = await response.json();
+        setDisciplines(data.disciplines);
+      } catch (error) {
+        console.error("Error fetching disciplines:", error);
+        setSnackbar({
+          open: true,
+          message: "Ошибка при загрузке дисциплин",
+          severity: "error",
+        });
+      } finally {
+        setIsLoadingDisciplines(false);
+      }
+    };
+
+    fetchDisciplines();
+  }, [tabValue]);
+
+  // Загрузка групп с бэкенда
+  useEffect(() => {
+    if (tabValue !== 2) return;
+
+    const fetchGroups = async () => {
+      setIsLoadingGroups(true);
+      try {
+        const response = await fetch("/api/groups/my");
+        if (!response.ok) {
+          throw new Error("Failed to fetch groups");
+        }
+        const data = await response.json();
+
+        // Преобразуем данные групп в нужный формат
+        const transformedGroups = data.groups.map((group: Group) => ({
+          ...group,
+          students: group.students.map((student) => ({
+            ...student,
+            email: student.email || `${student.username}@bmstu.ru`,
+          })),
+        }));
+
+        setGroups(transformedGroups);
+      } catch (error) {
+        console.error("Error fetching groups:", error);
+        setSnackbar({
+          open: true,
+          message: "Ошибка при загрузке групп",
+          severity: "error",
+        });
+      } finally {
+        setIsLoadingGroups(false);
+      }
+    };
+
+    fetchGroups();
+  }, [tabValue]);
 
   const activeTests = [
     {
@@ -99,7 +172,6 @@ export default function TeacherDashboard() {
       maxScore: 100,
       duration: 90,
     },
-    // ... остальные тесты
   ];
 
   const toggleGroup = (groupId: number) => {
@@ -134,9 +206,129 @@ export default function TeacherDashboard() {
     setUserMenuAnchorEl(null);
   };
 
+  const ruToEnMap: { [key: string]: string } = {
+    А: "A",
+    Б: "B",
+    В: "V",
+    Г: "G",
+    Д: "D",
+    Е: "E",
+    Ё: "Yo",
+    Ж: "Zh",
+    З: "Z",
+    И: "I",
+    Й: "Y",
+    К: "K",
+    Л: "L",
+    М: "M",
+    Н: "N",
+    О: "O",
+    П: "P",
+    Р: "R",
+    С: "S",
+    Т: "T",
+    У: "U",
+    Ф: "F",
+    Х: "Kh",
+    Ц: "Ts",
+    Ч: "Ch",
+    Ш: "Sh",
+    Щ: "Shch",
+    Ъ: "",
+    Ы: "Y",
+    Ь: "",
+    Э: "E",
+    Ю: "Yu",
+    Я: "Ya",
+  };
+
+  function parseStudents(str: string) {
+    const studentsArr = str
+      .split("\n")
+      .map((line) => line.split(" "))
+      .map((arr) => arr.filter((item) => item !== ""));
+    const students = studentsArr.map((arr) => {
+      const nameArr = arr.slice(1, 4);
+      const name = nameArr.reduce(
+        (acc, cur) => (acc += ruToEnMap[cur[0]].toLowerCase()),
+        ""
+      );
+      const username =
+        name +
+        arr[4].slice(0, 2) +
+        ruToEnMap[arr[4][2]].toLowerCase() +
+        arr[4].slice(3);
+      return {
+        first_name: nameArr[1],
+        last_name: nameArr[0],
+        username: username,
+      };
+    });
+    return { group_name: studentsArr[0][5], students };
+  }
+
+  const handleCreateGroup = async () => {
+    if (!newGroupList) {
+      setSnackbar({
+        open: true,
+        message: "Вставьте данные студентов",
+        severity: "error",
+      });
+      return;
+    }
+
+    setIsCreatingGroup(true);
+    try {
+      const students = parseStudents(newGroupList);
+
+      const res = await fetch("/api/groups/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(students),
+      });
+
+      if (!res.ok) throw new Error("Ошибка при создании группы");
+
+      const data = await res.json();
+      console.log(data);
+
+      setSnackbar({
+        open: true,
+        message: "Группа успешно создана",
+        severity: "success",
+      });
+      setNewGroupOpen(false);
+      setNewGroupList("");
+
+      // Обновляем список групп после создания новой
+      const groupsResponse = await fetch("/api/groups/my");
+      if (groupsResponse.ok) {
+        const updatedGroups = await groupsResponse.json();
+        setGroups(
+          updatedGroups.groups.map((group: Group) => ({
+            ...group,
+            students: group.students.map((student) => ({
+              ...student,
+              email: student.email || `${student.username}@bmstu.ru`,
+            })),
+          }))
+        );
+      }
+    } catch (error) {
+      console.error(error);
+      setSnackbar({
+        open: true,
+        message: "Ошибка при создании группы. Попробуйте еще раз.",
+        severity: "error",
+      });
+    } finally {
+      setIsCreatingGroup(false);
+    }
+  };
+
   return (
     <Container maxWidth="xl" sx={{ py: 4, display: "flex" }}>
-      {/* Профиль пользователя (правый верхний угол) */}
+      {/* Профиль пользователя */}
       <Box sx={{ position: "fixed", right: 32, top: 32, zIndex: 1000 }}>
         <Card
           variant="outlined"
@@ -306,7 +498,10 @@ export default function TeacherDashboard() {
                               icon={<TimerOutlined />}
                               label={`Осталось: ${calculateTimeLeft(test.due)}`}
                               color={
-                                differenceInSeconds(new Date(test.due), new Date()) < 300
+                                differenceInSeconds(
+                                  new Date(test.due),
+                                  new Date()
+                                ) < 300
                                   ? "error"
                                   : "primary"
                               }
@@ -336,38 +531,46 @@ export default function TeacherDashboard() {
                 </Button>
               </Box>
             </Grid>
-            {disciplines.map((discipline) => (
-              <Grid
-                sx={{ width: { xs: "100%", sm: "50%", md: "33.33%" } }}
-                key={discipline.id}
+            {isLoadingDisciplines ? (
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "center",
+                  width: "100%",
+                  p: 4,
+                }}
               >
-                <Card
-                  variant="outlined"
-                  sx={{ cursor: "pointer", "&:hover": { boxShadow: 2 } }}
-                  onClick={() =>
-                    console.log("Navigate to discipline", discipline.id)
-                  }
+                <CircularProgress />
+              </Box>
+            ) : (
+              disciplines.map((discipline) => (
+                <Grid
+                  sx={{ width: { xs: "100%", sm: "50%", md: "33.33%" } }}
+                  key={discipline.id}
                 >
-                  <CardContent>
-                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
-                      {discipline.name}
-                    </Typography>
-                    <Box sx={{ display: "flex", gap: 1, mb: 1 }}>
-                      <Chip
-                        label={`${discipline.groups.length} групп`}
-                        variant="outlined"
-                        size="small"
-                      />
-                      <Chip
-                        label={`${discipline.tests} тестов`}
-                        variant="outlined"
-                        size="small"
-                      />
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
+                  <Card
+                    variant="outlined"
+                    sx={{ cursor: "pointer", "&:hover": { boxShadow: 2 } }}
+                    onClick={() =>
+                      console.log("Navigate to discipline", discipline.id)
+                    }
+                  >
+                    <CardContent>
+                      <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                        {discipline.name}
+                      </Typography>
+                      <Box sx={{ display: "flex", gap: 1, mb: 1 }}>
+                        <Chip
+                          label={`${discipline.tests} тестов`}
+                          variant="outlined"
+                          size="small"
+                        />
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))
+            )}
           </Grid>
         )}
 
@@ -388,62 +591,54 @@ export default function TeacherDashboard() {
               <Card variant="outlined">
                 <CardContent>
                   <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
-                    Группы на курсе
+                    Все группы
                   </Typography>
-                  <List>
-                    {disciplines.map((discipline) => (
-                      <Box key={discipline.id} sx={{ mb: 3 }}>
-                        <Typography
-                          variant="subtitle1"
-                          sx={{ mb: 2, color: "text.secondary" }}
-                        >
-                          {discipline.name}
-                        </Typography>
-                        {discipline.groups.map((group) => (
-                          <Paper
-                            key={group.id}
-                            variant="outlined"
-                            sx={{ mb: 2 }}
-                          >
-                            <ListItemButton
-                              onClick={() => toggleGroup(group.id)}
-                            >
-                              <Groups sx={{ mr: 2, color: "text.secondary" }} />
-                              <ListItemText
-                                primary={group.name}
-                                secondary={`${group.students.length} студентов`}
-                              />
-                              <ExpandMore
-                                sx={{
-                                  transform: expandedGroups[group.id]
-                                    ? "rotate(180deg)"
-                                    : "none",
-                                  transition: "transform 0.2s",
-                                }}
-                              />
-                            </ListItemButton>
-                            <Collapse in={expandedGroups[group.id]}>
-                              <List dense disablePadding sx={{ pl: 4 }}>
-                                {group.students.map((student) => (
-                                  <ListItem key={student.id} sx={{ pl: 3 }}>
-                                    <ListItemAvatar>
-                                      <Avatar>
-                                        <Person />
-                                      </Avatar>
-                                    </ListItemAvatar>
-                                    <ListItemText
-                                      primary={student.name}
-                                      secondary={student.email}
-                                    />
-                                  </ListItem>
-                                ))}
-                              </List>
-                            </Collapse>
-                          </Paper>
-                        ))}
-                      </Box>
-                    ))}
-                  </List>
+                  {isLoadingGroups ? (
+                    <Box
+                      sx={{ display: "flex", justifyContent: "center", p: 4 }}
+                    >
+                      <CircularProgress />
+                    </Box>
+                  ) : (
+                    <List>
+                      {groups.map((group) => (
+                        <Paper key={group.id} variant="outlined" sx={{ mb: 2 }}>
+                          <ListItemButton onClick={() => toggleGroup(group.id)}>
+                            <Groups sx={{ mr: 2, color: "text.secondary" }} />
+                            <ListItemText
+                              primary={group.name}
+                              secondary={`${group.students.length} студентов`}
+                            />
+                            <ExpandMore
+                              sx={{
+                                transform: expandedGroups[group.id]
+                                  ? "rotate(180deg)"
+                                  : "none",
+                                transition: "transform 0.2s",
+                              }}
+                            />
+                          </ListItemButton>
+                          <Collapse in={expandedGroups[group.id]}>
+                            <List dense disablePadding sx={{ pl: 4 }}>
+                              {group.students.map((student) => (
+                                <ListItem key={student.id} sx={{ pl: 3 }}>
+                                  <ListItemAvatar>
+                                    <Avatar>
+                                      <Person />
+                                    </Avatar>
+                                  </ListItemAvatar>
+                                  <ListItemText
+                                    primary={`${student.last_name} ${student.first_name}`}
+                                    secondary={student.email}
+                                  />
+                                </ListItem>
+                              ))}
+                            </List>
+                          </Collapse>
+                        </Paper>
+                      ))}
+                    </List>
+                  )}
                 </CardContent>
               </Card>
             </Grid>
@@ -527,17 +722,25 @@ export default function TeacherDashboard() {
             multiline
             rows={10}
             placeholder="Вставьте данные студентов здесь..."
+            value={newGroupList}
+            onChange={(e) => setNewGroupList(e.target.value)}
           />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setNewGroupOpen(false)}>Отмена</Button>
           <Button
             variant="contained"
-            onClick={() => {
-              /* Логика создания */ setNewGroupOpen(false);
-            }}
+            onClick={handleCreateGroup}
+            disabled={isCreatingGroup}
           >
-            Создать группу
+            {isCreatingGroup ? (
+              <>
+                <CircularProgress size={24} sx={{ mr: 1 }} />
+                Создание...
+              </>
+            ) : (
+              "Создать группу"
+            )}
           </Button>
         </DialogActions>
       </Dialog>
@@ -594,6 +797,22 @@ export default function TeacherDashboard() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Снэкбар для уведомлений */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: "100%" }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 }
