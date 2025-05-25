@@ -37,10 +37,7 @@ export default function TestPage({ params }: { params: Promise<{ id: string }> }
     const [startTime, setStartTime] = useState<string | null>(null);
     const [isCompleted, setIsCompleted] = useState(false);
 
-    // Ключ для localStorage
-    const localStorageKey = `test_answers_${id}`;
-
-    // 1. Получаем startTime и testData
+    // 1. Получаем startTime, testData и сохранённые ответы
     useEffect(() => {
         let ignore = false;
         setLoading(true);
@@ -62,22 +59,46 @@ export default function TestPage({ params }: { params: Promise<{ id: string }> }
                     setStartTime(data.start_time);
                     setIsCompleted(!!data.is_completed);
 
-                    // Если попытка завершена — очищаем localStorage
-                    if (data.is_completed) {
-                        localStorage.removeItem(localStorageKey);
-                    } else if (data.message === 'Attempt already exists') {
-                        // Восстанавливаем ответы
-                        const saved = localStorage.getItem(localStorageKey);
-                        if (saved) {
-                            try {
-                                setAnswers(JSON.parse(saved));
-                            } catch {}
-                        }
+                    if (!data.is_completed) {
+                        fetch(`/api/test/${id}/saved`, { credentials: 'include' })
+                            .then(async (res) => {
+                                if (!res.ok) return;
+                                const saved = await res.json();
+                                if (saved && saved.answers) {
+                                    const parsedAnswers = Object.fromEntries(
+                                        Object.entries(saved.answers).map(([qid, arr]) => [
+                                            Number(qid),
+                                            Array.isArray(arr) && arr.length === 1 ? arr[0] : arr,
+                                        ])
+                                    );
+                                    setAnswers(parsedAnswers);
+
+                                    // После загрузки ответов — найти первый неотвеченный вопрос
+                                    fetch(`/api/test/${id}`)
+                                        .then(async (res) => {
+                                            if (!res.ok) throw new Error('Ошибка загрузки теста');
+                                            return res.json();
+                                        })
+                                        .then((data) => {
+                                            if (!ignore) {
+                                                setTestData(data.chapter.test);
+                                                setLoading(false);
+                                                const questions = data.chapter.test.questions || [];
+                                                const firstUnanswered = questions.findIndex(
+                                                    (q: any) => !(q.question_id in parsedAnswers)
+                                                );
+                                                setActiveQuestion(firstUnanswered !== -1 ? firstUnanswered : 0);
+                                            }
+                                        });
+                                    return;
+                                }
+                            })
+                            .catch(() => {});
                     }
-                    // Не очищайте localStorage в else!
                 }
             })
-            .then(() =>
+            .then(() => {
+                // Если ответы не были загружены выше, грузим тест и ставим первый вопрос
                 fetch(`/api/test/${id}`)
                     .then(async (res) => {
                         if (!res.ok) throw new Error('Ошибка загрузки теста');
@@ -87,9 +108,12 @@ export default function TestPage({ params }: { params: Promise<{ id: string }> }
                         if (!ignore) {
                             setTestData(data.chapter.test);
                             setLoading(false);
+                            if (!Object.keys(answers).length) {
+                                setActiveQuestion(0);
+                            }
                         }
-                    })
-            )
+                    });
+            })
             .catch((e) => {
                 if (!ignore) {
                     setError(e.message);
@@ -138,11 +162,6 @@ export default function TestPage({ params }: { params: Promise<{ id: string }> }
         const secs = seconds % 60;
         return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
     };
-
-    // 4. Сохраняем ответы в localStorage при каждом изменении
-    useEffect(() => {
-        localStorage.setItem(localStorageKey, JSON.stringify(answers));
-    }, [answers, localStorageKey]);
 
     // 5. Отправка ответа на вопрос
     const sendAnswer = async (questionId: number, answer_option_id: number) => {
@@ -198,14 +217,13 @@ export default function TestPage({ params }: { params: Promise<{ id: string }> }
                 throw new Error(data.error || data.message || 'Ошибка завершения теста');
             }
             // Очищаем localStorage после завершения теста
-            localStorage.removeItem(localStorageKey);
             router.push(`/tests/result/${id}`);
         } catch (e: any) {
             setError(e.message);
         } finally {
             setSubmitting(false);
         }
-    }, [activeQuestion, answers, id, questions, router, sendAnswer, localStorageKey]);
+    }, [activeQuestion, answers, id, questions, router, sendAnswer]);
 
     const handleFinishRef = useRef(handleFinish);
     useEffect(() => {

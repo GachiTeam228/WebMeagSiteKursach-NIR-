@@ -306,7 +306,7 @@ export default function TeacherDashboard() {
                               icon={<TimerOutlined />}
                               label={`Осталось: ${calculateTimeLeft(test.due)}`}
                               color={
-                                calculateTimeLeft(test.due) < 300
+                                differenceInSeconds(new Date(test.due), new Date()) < 300
                                   ? "error"
                                   : "primary"
                               }

@@ -116,7 +116,7 @@ export default function DisciplinePage() {
   );
   const [editingItem, setEditingItem] = useState<EditingItem>(null);
   const [assignTestsOpen, setAssignTestsOpen] = useState(false);
-  const [deadline, setDeadline] = useState<Date | null>(new Date());
+  const [deadline, setDeadline] = useState<Date | null>(null);
   const [selectedTests, setSelectedTests] = useState<Test[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const [isTeacher, setIsTeacher] = useState(true);
@@ -173,6 +173,10 @@ export default function DisciplinePage() {
       inputRef.current.focus();
     }
   }, [editingItem]);
+
+  useEffect(() => {
+    setDeadline(new Date());
+  }, []);
 
   const toggleChapter = (chapterId: number) => {
     if (editMode) return;
