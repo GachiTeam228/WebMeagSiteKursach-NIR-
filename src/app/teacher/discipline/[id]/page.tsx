@@ -106,7 +106,7 @@ export default function DisciplinePage() {
     {}
   );
   const [assignTestsOpen, setAssignTestsOpen] = useState(false);
-  const [deadline, setDeadline] = useState<Date | null>(new Date());
+  const [deadline, setDeadline] = useState<Date | null>(null);
   const [selectedTests, setSelectedTests] = useState<Test[]>([]);
   const [isTeacher, setIsTeacher] = useState(true);
 
@@ -155,6 +155,12 @@ export default function DisciplinePage() {
       },
     ],
   });
+
+  useEffect(() => {
+    if (deadline === null) {
+      setDeadline(new Date());
+    }
+  }, [deadline]);
 
   // Функции для редактирования структуры курса
   const onDragEnd = (result: any) => {
@@ -322,6 +328,31 @@ export default function DisciplinePage() {
     }));
   };
 
+  const handleSaveStructure = async () => {
+    // Формируем структуру для API
+    const chapters = discipline.chapters.map((chapter, chapterIdx) => ({
+      id: chapter.id,
+      order: chapterIdx,
+      tests: chapter.tests.map((test, testIdx) => ({
+        id: test.id,
+        order: testIdx,
+      })),
+    }));
+
+    try {
+      const res = await fetch(`/api/discipline/${discipline.id}/structure`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chapters }),
+      });
+      if (!res.ok) throw new Error("Ошибка сохранения структуры");
+      // Можно показать уведомление об успехе
+      setEditMode(false);
+    } catch (e) {
+      alert("Ошибка при сохранении структуры");
+    }
+  };
+
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
       <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -346,7 +377,7 @@ export default function DisciplinePage() {
                 <Button
                   variant="contained"
                   startIcon={<Check />}
-                  onClick={() => setEditMode(false)}
+                  onClick={handleSaveStructure}
                 >
                   Сохранить
                 </Button>
