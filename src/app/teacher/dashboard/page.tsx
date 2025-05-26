@@ -79,7 +79,7 @@ export default function TeacherDashboard() {
   const [newGroupOpen, setNewGroupOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [disciplineName, setDisciplineName] = useState("");
-  const [disciplineDescription, setDisciplineDescription] = useState("");
+  const [isCreatingDiscipline, setIsCreatingDiscipline] = useState(false);
   const [userMenuAnchorEl, setUserMenuAnchorEl] = useState<null | HTMLElement>(
     null
   );
@@ -95,6 +95,16 @@ export default function TeacherDashboard() {
   const [disciplines, setDisciplines] = useState<Discipline[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
 
+  // 1. Сохраняем текущее время в стейте
+  const [now, setNow] = useState<Date | null>(null);
+
+  // 2. Обновляем его каждую секунду только на клиенте
+  useEffect(() => {
+    setNow(new Date());
+    const interval = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Загрузка дисциплин с бэкенда
   useEffect(() => {
     if (tabValue !== 1) return;
@@ -102,14 +112,13 @@ export default function TeacherDashboard() {
     const fetchDisciplines = async () => {
       setIsLoadingDisciplines(true);
       try {
-        const response = await fetch("/api/disciplines/my");
+        const response = await fetch("/api/discipline/my");
         if (!response.ok) {
           throw new Error("Failed to fetch disciplines");
         }
         const data = await response.json();
-        setDisciplines(data.disciplines);
+        setDisciplines(data.subjects); // исправлено здесь
       } catch (error) {
-        console.error("Error fetching disciplines:", error);
         setSnackbar({
           open: true,
           message: "Ошибка при загрузке дисциплин",
@@ -182,9 +191,9 @@ export default function TeacherDashboard() {
   };
 
   const calculateTimeLeft = (dueDate: string) => {
-    const now = new Date();
+    if (!now) return "";
     const due = new Date(dueDate);
-    const seconds = differenceInSeconds(due, now);
+    const seconds = Math.max(0, Math.floor((due.getTime() - now.getTime()) / 1000));
     return formatTime(seconds);
   };
 
@@ -323,6 +332,52 @@ export default function TeacherDashboard() {
       });
     } finally {
       setIsCreatingGroup(false);
+    }
+  };
+
+  // Обработка создания дисциплины
+  const handleCreateDiscipline = async () => {
+    if (!disciplineName.trim()) {
+      setSnackbar({
+        open: true,
+        message: "Введите название дисциплины",
+        severity: "error",
+      });
+      return;
+    }
+    setIsCreatingDiscipline(true);
+    try {
+      const res = await fetch("/api/discipline/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: disciplineName.trim() }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Ошибка при создании дисциплины");
+      }
+      setSnackbar({
+        open: true,
+        message: "Дисциплина успешно создана",
+        severity: "success",
+      });
+      setNewDisciplineOpen(false);
+      setDisciplineName("");
+
+      // Обновляем список дисциплин после создания новой
+      const response = await fetch("/api/discipline/my");
+      if (response.ok) {
+        const data = await response.json();
+        setDisciplines(data.subjects);
+      }
+    } catch (error: any) {
+      setSnackbar({
+        open: true,
+        message: error.message || "Ошибка при создании дисциплины",
+        severity: "error",
+      });
+    } finally {
+      setIsCreatingDiscipline(false);
     }
   };
 
@@ -498,10 +553,7 @@ export default function TeacherDashboard() {
                               icon={<TimerOutlined />}
                               label={`Осталось: ${calculateTimeLeft(test.due)}`}
                               color={
-                                differenceInSeconds(
-                                  new Date(test.due),
-                                  new Date()
-                                ) < 300
+                                now && differenceInSeconds(new Date(test.due), now) < 300
                                   ? "error"
                                   : "primary"
                               }
@@ -542,7 +594,7 @@ export default function TeacherDashboard() {
               >
                 <CircularProgress />
               </Box>
-            ) : (
+            ) : ( disciplines ?
               disciplines.map((discipline) => (
                 <Grid
                   sx={{ width: { xs: "100%", sm: "50%", md: "33.33%" } }}
@@ -569,7 +621,32 @@ export default function TeacherDashboard() {
                     </CardContent>
                   </Card>
                 </Grid>
-              ))
+              )) : <Box
+                    sx={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      p: 6,
+                      color: "text.secondary",
+                      width: "100%",
+                    }}
+                  >
+                    <School sx={{ fontSize: 56, mb: 2, color: "primary.main" }} />
+                    <Typography variant="h6" sx={{ mb: 1 }}>
+                      У вас пока нет дисциплин.
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 3 }}>
+                      Создайте новую дисциплину, чтобы начать работу с тестами и группами.
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      startIcon={<Add />}
+                      onClick={() => setNewDisciplineOpen(true)}
+                    >
+                      Создать дисциплину
+                    </Button>
+                  </Box>
             )}
           </Grid>
         )}
@@ -598,6 +675,32 @@ export default function TeacherDashboard() {
                       sx={{ display: "flex", justifyContent: "center", p: 4 }}
                     >
                       <CircularProgress />
+                    </Box>
+                  ) : groups.length === 0 ? (
+                    <Box
+                      sx={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        p: 4,
+                        color: "text.secondary",
+                      }}
+                    >
+                      <Groups sx={{ fontSize: 48, mb: 2 }} />
+                      <Typography variant="body1">
+                        У вас пока нет групп.
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 1, mb: 2 }}>
+                        Создайте новую группу, чтобы начать работу.
+                      </Typography>
+                      <Button
+                        variant="contained"
+                        startIcon={<Add />}
+                        onClick={() => setNewGroupOpen(true)}
+                      >
+                        Создать группу
+                      </Button>
                     </Box>
                   ) : (
                     <List>
@@ -650,6 +753,8 @@ export default function TeacherDashboard() {
       <Dialog
         open={newDisciplineOpen}
         onClose={() => setNewDisciplineOpen(false)}
+        maxWidth='sm'
+        fullWidth
       >
         <DialogTitle>
           Новая дисциплина
@@ -660,7 +765,7 @@ export default function TeacherDashboard() {
             <Close />
           </IconButton>
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ padding: '0 20px'}}>
           <TextField
             autoFocus
             margin="dense"
@@ -669,28 +774,24 @@ export default function TeacherDashboard() {
             variant="outlined"
             value={disciplineName}
             onChange={(e) => setDisciplineName(e.target.value)}
-            sx={{ mb: 2 }}
-          />
-          <TextField
-            margin="dense"
-            label="Описание (необязательно)"
-            fullWidth
-            variant="outlined"
-            multiline
-            rows={4}
-            value={disciplineDescription}
-            onChange={(e) => setDisciplineDescription(e.target.value)}
+            sx={{ mb: 2}}
           />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setNewDisciplineOpen(false)}>Отмена</Button>
           <Button
             variant="contained"
-            onClick={() => {
-              /* Логика создания */ setNewDisciplineOpen(false);
-            }}
+            onClick={handleCreateDiscipline}
+            disabled={isCreatingDiscipline}
           >
-            Создать
+            {isCreatingDiscipline ? (
+              <>
+                <CircularProgress size={24} sx={{ mr: 1 }} />
+                Создание...
+              </>
+            ) : (
+              "Создать"
+            )}
           </Button>
         </DialogActions>
       </Dialog>
