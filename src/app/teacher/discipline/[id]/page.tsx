@@ -21,12 +21,21 @@ import {
   Avatar,
   ListItemAvatar,
   ListItemButton,
-  Checkbox,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   Chip,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TableFooter,
+  Input,
+  styled,
+  Checkbox,
 } from "@mui/material";
 import {
   Add,
@@ -54,10 +63,19 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { MobileDateTimePicker } from "@mui/x-date-pickers/MobileDateTimePicker";
 import { ru } from "date-fns/locale";
 
+const EditableTableCell = styled(TableCell)(({ theme }) => ({
+  padding: "8px",
+  "&:hover": {
+    backgroundColor: theme.palette.action.hover,
+  },
+}));
+
 type Test = {
   id: number;
   name: string;
   selected?: boolean;
+  maxScore: number;
+  minScore: number;
 };
 
 type Chapter = {
@@ -66,12 +84,9 @@ type Chapter = {
   tests: Test[];
 };
 
-type Group = {
-  id: number;
-  name: string;
-  students: Student[];
-  selected?: boolean;
-  indeterminate?: boolean;
+type StudentResult = {
+  testId: number;
+  score: number | null;
 };
 
 type Student = {
@@ -79,6 +94,16 @@ type Student = {
   name: string;
   email: string;
   selected?: boolean;
+  results: StudentResult[];
+  totalScore: number;
+};
+
+type Group = {
+  id: number;
+  name: string;
+  students: Student[];
+  selected?: boolean;
+  indeterminate?: boolean;
 };
 
 type DisciplineType = {
@@ -109,6 +134,12 @@ export default function DisciplinePage() {
   const [deadline, setDeadline] = useState<Date | null>(new Date());
   const [selectedTests, setSelectedTests] = useState<Test[]>([]);
   const [isTeacher, setIsTeacher] = useState(true);
+  const [editingCell, setEditingCell] = useState<{
+    studentId: number;
+    testId: number;
+  } | null>(null);
+  const [editingValue, setEditingValue] = useState<string>("");
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
   const [discipline, setDiscipline] = useState<DisciplineType>({
     id: 1,
@@ -119,15 +150,96 @@ export default function DisciplinePage() {
         id: 1,
         name: "EM-201",
         students: [
-          { id: 1, name: "Иванов Иван", email: "ivanov@example.com" },
-          { id: 2, name: "Петров Петр", email: "petrov@example.com" },
+          {
+            id: 1,
+            name: "Иванов Иван",
+            email: "ivanov@example.com",
+            results: [
+              { testId: 1, score: 8 },
+              { testId: 2, score: 15 },
+              { testId: 3, score: 4 },
+              { testId: 4, score: 4 },
+              { testId: 5, score: 5 },
+              { testId: 6, score: 5 },
+              { testId: 7, score: 5 },
+              { testId: 8, score: 5 },
+              { testId: 9, score: 5 },
+              { testId: 10, score: 5 },
+              { testId: 11, score: 5 },
+              { testId: 12, score: 5 },
+              { testId: 13, score: 5 },
+              { testId: 14, score: 5 },
+              { testId: 15, score: 5 },
+              { testId: 16, score: 5 },
+              { testId: 17, score: 5 },
+              { testId: 18, score: 5 },
+              { testId: 19, score: 5 },
+              { testId: 20, score: 5 },
+            ],
+            totalScore: 32,
+          },
+          {
+            id: 2,
+            name: "Петров Петр",
+            email: "petrov@example.com",
+            results: [
+              { testId: 1, score: 5 },
+              { testId: 2, score: 12 },
+              { testId: 3, score: 3 },
+              { testId: 4, score: 4 },
+              { testId: 5, score: 5 },
+              { testId: 6, score: 5 },
+              { testId: 7, score: 5 },
+              { testId: 8, score: 5 },
+              { testId: 9, score: 5 },
+              { testId: 10, score: 5 },
+              { testId: 11, score: 5 },
+              { testId: 12, score: 5 },
+              { testId: 13, score: 5 },
+              { testId: 14, score: 5 },
+              { testId: 15, score: 5 },
+              { testId: 16, score: 5 },
+              { testId: 17, score: 5 },
+              { testId: 18, score: 5 },
+              { testId: 19, score: 5 },
+              { testId: 20, score: 5 },
+            ],
+            totalScore: 24,
+          },
         ],
       },
       {
         id: 2,
         name: "EM-202",
         students: [
-          { id: 3, name: "Сидорова Мария", email: "sidorova@example.com" },
+          {
+            id: 3,
+            name: "Сидорова Мария",
+            email: "sidorova@example.com",
+            results: [
+              { testId: 1, score: 10 },
+              { testId: 2, score: 18 },
+              { testId: 3, score: 5 },
+              { testId: 4, score: 5 },
+              { testId: 5, score: 5 },
+              { testId: 6, score: 5 },
+              { testId: 7, score: 5 },
+              { testId: 8, score: 5 },
+              { testId: 9, score: 5 },
+              { testId: 10, score: 5 },
+              { testId: 11, score: 5 },
+              { testId: 12, score: 5 },
+              { testId: 13, score: 5 },
+              { testId: 14, score: 5 },
+              { testId: 15, score: 5 },
+              { testId: 16, score: 5 },
+              { testId: 17, score: 5 },
+              { testId: 18, score: 5 },
+              { testId: 19, score: 5 },
+              { testId: 20, score: 5 },
+            ],
+            totalScore: 38,
+          },
         ],
       },
     ],
@@ -136,16 +248,37 @@ export default function DisciplinePage() {
         id: 1,
         title: "Основные понятия электромеханики",
         tests: [
-          { id: 1, name: "Тест по базовым понятиям" },
-          { id: 2, name: "Контрольная работа №1" },
+          {
+            id: 1,
+            name: "Тест по базовым понятиям",
+            maxScore: 10,
+            minScore: 5,
+          },
+          { id: 2, name: "Контрольная работа №1", maxScore: 20, minScore: 10 },
         ],
       },
       {
         id: 2,
         title: "Электрические машины",
         tests: [
-          { id: 3, name: "Тест по трансформаторам" },
-          { id: 4, name: "Лабораторная работа" },
+          { id: 3, name: "Тест по трансформаторам", maxScore: 5, minScore: 3 },
+          { id: 4, name: "Лабораторная работа", maxScore: 5, minScore: 3 },
+          { id: 5, name: "Лабораторная работа", maxScore: 5, minScore: 3 },
+          { id: 6, name: "Лабораторная работа", maxScore: 5, minScore: 3 },
+          { id: 7, name: "Лабораторная работа", maxScore: 5, minScore: 3 },
+          { id: 8, name: "Лабораторная работа", maxScore: 5, minScore: 3 },
+          { id: 9, name: "Лабораторная работа", maxScore: 5, minScore: 3 },
+          { id: 10, name: "Лабораторная работа", maxScore: 5, minScore: 3 },
+          { id: 11, name: "Лабораторная работа", maxScore: 5, minScore: 3 },
+          { id: 12, name: "Лабораторная работа", maxScore: 5, minScore: 3 },
+          { id: 13, name: "Лабораторная работа", maxScore: 5, minScore: 3 },
+          { id: 14, name: "Лабораторная работа", maxScore: 5, minScore: 3 },
+          { id: 15, name: "Лабораторная работа", maxScore: 5, minScore: 3 },
+          { id: 16, name: "Лабораторная работа", maxScore: 5, minScore: 3 },
+          { id: 17, name: "Лабораторная работа", maxScore: 5, minScore: 3 },
+          { id: 18, name: "Лабораторная работа", maxScore: 5, minScore: 3 },
+          { id: 19, name: "Лабораторная работа", maxScore: 5, minScore: 3 },
+          { id: 20, name: "Лабораторная работа", maxScore: 5, minScore: 3 },
         ],
       },
       {
@@ -155,6 +288,13 @@ export default function DisciplinePage() {
       },
     ],
   });
+
+  // Автофокус при создании новой главы
+  useEffect(() => {
+    if (editMode && titleInputRef.current) {
+      titleInputRef.current.focus();
+    }
+  }, [editMode]);
 
   // Функции для редактирования структуры курса
   const onDragEnd = (result: any) => {
@@ -185,7 +325,7 @@ export default function DisciplinePage() {
   const addChapter = () => {
     const newChapter = {
       id: Math.max(...discipline.chapters.map((c) => c.id)) + 1,
-      title: `Глава ${discipline.chapters.length + 1}: Новая глава`,
+      title: `Новая глава`,
       tests: [],
     };
     setDiscipline({
@@ -193,6 +333,15 @@ export default function DisciplinePage() {
       chapters: [...discipline.chapters, newChapter],
     });
     setExpandedChapters((prev) => ({ ...prev, [newChapter.id]: true }));
+  };
+
+  const updateChapterTitle = (chapterId: number, newTitle: string) => {
+    setDiscipline({
+      ...discipline,
+      chapters: discipline.chapters.map((chapter) =>
+        chapter.id === chapterId ? { ...chapter, title: newTitle } : chapter
+      ),
+    });
   };
 
   const addTest = (chapterId: number) => {
@@ -207,11 +356,92 @@ export default function DisciplinePage() {
           ...discipline.chapters.flatMap((c) => c.tests).map((t) => t.id)
         ) + 1,
       name: "Новый тест",
+      maxScore: 10,
+      minScore: 5,
     };
 
     const newChapters = [...discipline.chapters];
     newChapters[chapterIndex].tests.push(newTest);
-    setDiscipline({ ...discipline, chapters: newChapters });
+
+    // Добавляем новый тест всем студентам с null результатом
+    const updatedGroups = discipline.groups.map((group) => ({
+      ...group,
+      students: group.students.map((student) => ({
+        ...student,
+        results: [...student.results, { testId: newTest.id, score: null }],
+      })),
+    }));
+
+    setDiscipline({
+      ...discipline,
+      chapters: newChapters,
+      groups: updatedGroups,
+    });
+  };
+
+  const updateTestName = (testId: number, newName: string) => {
+    setDiscipline({
+      ...discipline,
+      chapters: discipline.chapters.map((chapter) => ({
+        ...chapter,
+        tests: chapter.tests.map((test) =>
+          test.id === testId ? { ...test, name: newName } : test
+        ),
+      })),
+    });
+  };
+
+  // Функции для работы с таблицей успеваемости
+  const handleScoreClick = (
+    studentId: number,
+    testId: number,
+    currentScore: number | null
+  ) => {
+    setEditingCell({ studentId, testId });
+    setEditingValue(currentScore?.toString() || "");
+  };
+
+  const handleScoreChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditingValue(e.target.value);
+  };
+
+  const handleScoreBlur = () => {
+    if (!editingCell) return;
+
+    const { studentId, testId } = editingCell;
+    const newScore = editingValue ? parseInt(editingValue) : null;
+
+    // Обновляем результат студента
+    const updatedGroups = discipline.groups.map((group) => ({
+      ...group,
+      students: group.students.map((student) => {
+        if (student.id === studentId) {
+          const updatedResults = student.results.map((result) =>
+            result.testId === testId ? { ...result, score: newScore } : result
+          );
+
+          // Пересчитываем общий балл
+          const totalScore = updatedResults.reduce(
+            (sum, result) => sum + (result.score || 0),
+            0
+          );
+
+          return { ...student, results: updatedResults, totalScore };
+        }
+        return student;
+      }),
+    }));
+
+    setDiscipline({ ...discipline, groups: updatedGroups });
+    setEditingCell(null);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleScoreBlur();
+    } else if (e.key === "Escape") {
+      setEditingCell(null);
+    }
   };
 
   // Функции для выдачи тестов
@@ -322,6 +552,11 @@ export default function DisciplinePage() {
     }));
   };
 
+  // Получаем все тесты для таблицы
+  const allTests = discipline.chapters.flatMap((chapter) => chapter.tests);
+  const minTotalScore = allTests.reduce((sum, test) => sum + test.minScore, 0);
+  const maxTotalScore = allTests.reduce((sum, test) => sum + test.maxScore, 0);
+
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
       <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -422,7 +657,23 @@ export default function DisciplinePage() {
                                   <Folder
                                     sx={{ mr: 2, color: "text.secondary" }}
                                   />
-                                  <ListItemText primary={chapter.title} />
+                                  <TextField
+                                    value={chapter.title}
+                                    onChange={(e) =>
+                                      updateChapterTitle(
+                                        chapter.id,
+                                        e.target.value
+                                      )
+                                    }
+                                    fullWidth
+                                    variant="standard"
+                                    inputRef={
+                                      chapterIndex ===
+                                      discipline.chapters.length - 1
+                                        ? titleInputRef
+                                        : null
+                                    }
+                                  />
                                   {expandedChapters[chapter.id] ? (
                                     <ExpandLess />
                                   ) : (
@@ -482,8 +733,16 @@ export default function DisciplinePage() {
                                                           fontSize="small"
                                                         />
                                                       </Avatar>
-                                                      <ListItemText
-                                                        primary={test.name}
+                                                      <TextField
+                                                        value={test.name}
+                                                        onChange={(e) =>
+                                                          updateTestName(
+                                                            test.id,
+                                                            e.target.value
+                                                          )
+                                                        }
+                                                        fullWidth
+                                                        variant="standard"
                                                       />
                                                     </ListItemButton>
                                                   </Paper>
@@ -579,7 +838,10 @@ export default function DisciplinePage() {
                                     fontSize="small"
                                   />
                                 </Avatar>
-                                <ListItemText primary={test.name} />
+                                <ListItemText
+                                  primary={test.name}
+                                  secondary={`Макс. баллов: ${test.maxScore}, Минимум: ${test.minScore}`}
+                                />
                               </ListItemButton>
                             </ListItem>
                           ))}
@@ -603,17 +865,6 @@ export default function DisciplinePage() {
                 {discipline.groups.map((group) => (
                   <Paper key={group.id} elevation={2} sx={{ mb: 2 }}>
                     <ListItemButton onClick={() => toggleGroup(group.id)}>
-                      {isTeacher && (
-                        <Checkbox
-                          edge="start"
-                          checked={group.selected || false}
-                          indeterminate={group.indeterminate}
-                          onChange={(e) =>
-                            handleGroupSelect(group.id, e.target.checked)
-                          }
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      )}
                       <Groups sx={{ mr: 2, color: "text.secondary" }} />
                       <ListItemText
                         primary={group.name}
@@ -629,38 +880,98 @@ export default function DisciplinePage() {
                       />
                     </ListItemButton>
                     <Collapse in={expandedGroups[group.id]}>
-                      <List dense disablePadding sx={{ pl: 4 }}>
-                        {group.students.map((student) => (
-                          <ListItem
-                            key={student.id}
-                            secondaryAction={
-                              isTeacher && (
-                                <Checkbox
-                                  edge="end"
-                                  checked={student.selected || false}
-                                  onChange={(e) =>
-                                    handleStudentSelect(
-                                      group.id,
-                                      student.id,
-                                      e.target.checked
-                                    )
-                                  }
-                                />
-                              )
-                            }
-                          >
-                            <ListItemAvatar>
-                              <Avatar>
-                                <Person />
-                              </Avatar>
-                            </ListItemAvatar>
-                            <ListItemText
-                              primary={student.name}
-                              secondary={student.email}
-                            />
-                          </ListItem>
-                        ))}
-                      </List>
+                      <Box sx={{ overflowX: "auto" }}>
+                        <TableContainer component={Paper} sx={{ mt: 2 }}>
+                          <Table size="small">
+                            <TableHead>
+                              <TableRow>
+                                <TableCell>№</TableCell>
+                                <TableCell>Студент</TableCell>
+                                {allTests.map((test) => (
+                                  <TableCell key={test.id} align="right">
+                                    {test.name}
+                                    <Typography
+                                      variant="caption"
+                                      display="block"
+                                    >
+                                      (max: {test.maxScore}, min:{" "}
+                                      {test.minScore})
+                                    </Typography>
+                                  </TableCell>
+                                ))}
+                                <TableCell align="right">
+                                  Итого
+                                  <Typography variant="caption" display="block">
+                                    (max: {maxTotalScore}, min: {minTotalScore})
+                                  </Typography>
+                                </TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {group.students.map((student, index) => (
+                                <TableRow key={student.id}>
+                                  <TableCell>{index + 1}</TableCell>
+                                  <TableCell>{student.name}</TableCell>
+                                  {allTests.map((test) => {
+                                    const result = student.results.find(
+                                      (r) => r.testId === test.id
+                                    );
+                                    const score = result?.score ?? null;
+
+                                    return (
+                                      <EditableTableCell
+                                        key={test.id}
+                                        align="right"
+                                        onClick={() =>
+                                          isTeacher &&
+                                          handleScoreClick(
+                                            student.id,
+                                            test.id,
+                                            score
+                                          )
+                                        }
+                                      >
+                                        {editingCell?.studentId ===
+                                          student.id &&
+                                        editingCell?.testId === test.id ? (
+                                          <Input
+                                            value={editingValue}
+                                            onChange={handleScoreChange}
+                                            onBlur={handleScoreBlur}
+                                            onKeyDown={handleKeyDown}
+                                            autoFocus
+                                            type="number"
+                                            inputProps={{
+                                              min: 0,
+                                              max: test.maxScore,
+                                              step: 0.1,
+                                            }}
+                                          />
+                                        ) : score !== null ? (
+                                          score
+                                        ) : (
+                                          "-"
+                                        )}
+                                      </EditableTableCell>
+                                    );
+                                  })}
+                                  <TableCell
+                                    align="right"
+                                    sx={{
+                                      backgroundColor:
+                                        student.totalScore < minTotalScore
+                                          ? "rgba(255, 0, 0, 0.1)"
+                                          : "inherit",
+                                    }}
+                                  >
+                                    {student.totalScore}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      </Box>
                     </Collapse>
                   </Paper>
                 ))}
