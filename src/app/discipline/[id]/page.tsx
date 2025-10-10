@@ -37,7 +37,7 @@ import {
   ExpandMore,
 } from "@mui/icons-material";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { format, differenceInHours, differenceInMinutes } from "date-fns";
 
 type TestStatus = "not-assigned" | "completed" | "in-progress" | "overdue";
@@ -103,6 +103,7 @@ export default function StudentDisciplinePage() {
     2: true,
     3: true,
   });
+  const [now, setNow] = useState<Date>(new Date());
 
   // Mock data for discipline structure
   const [discipline, setDiscipline] = useState<DisciplineType>({
@@ -259,8 +260,10 @@ export default function StudentDisciplinePage() {
     maxTotalScore: 100, // 40 + 30 + 30
   });
 
+  // Обновляем now каждую минуту (или чаще, если нужен таймер)
   useEffect(() => {
-    setDeadline(new Date());
+    const interval = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(interval);
   }, []);
 
   const toggleChapter = (chapterId: number) => {
@@ -270,13 +273,17 @@ export default function StudentDisciplinePage() {
     }));
   };
 
-  const calculateTimeLeft = (dueDate: string) => {
-    const now = new Date();
-    const due = new Date(dueDate);
-    const hours = differenceInHours(due, now);
-    const minutes = differenceInMinutes(due, now) % 60;
-    return `${hours} ч ${minutes} мин`;
-  };
+  // Используем useMemo чтобы пересчитывать только при изменении now
+  const calculateTimeLeft = useMemo(
+    () => (dueDate: string) => {
+      if (!dueDate) return "";
+      const due = new Date(dueDate);
+      const hours = differenceInHours(due, now);
+      const minutes = differenceInMinutes(due, now) % 60;
+      return `${hours} ч ${minutes} мин`;
+    },
+    [now]
+  );
 
   const getTestBadge = (test: Test) => {
     switch (test.status) {
@@ -456,7 +463,7 @@ export default function StudentDisciplinePage() {
                 </TableHead>
                 <TableBody>
                   {progress.modules.map((module) => (
-                    <>
+                    <div key={module.name}>
                       {module.items.map((item) => (
                         <TableRow key={item.id}>
                           <TableCell>{module.name}</TableCell>
@@ -527,7 +534,7 @@ export default function StudentDisciplinePage() {
                           <Divider />
                         </TableCell>
                       </TableRow>
-                    </>
+                    </div>
                   ))}
 
                   {progress.exam && (
@@ -593,8 +600,5 @@ export default function StudentDisciplinePage() {
       )}
     </Container>
   );
-}
-function setDeadline(arg0: Date) {
-  throw new Error("Function not implemented.");
 }
 

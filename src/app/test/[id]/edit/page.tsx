@@ -9,7 +9,6 @@ import {
   CardContent,
   CardHeader,
   Divider,
-  Grid,
   IconButton,
   MenuItem,
   Select,
@@ -36,7 +35,7 @@ import { useState, useEffect } from "react";
 import { use } from "react";
 
 export default function EditTestPage({ params }: { params: { id: string } }) {
-  const resolvedParams = use(params);
+  const resolvedParams = use(params) as {id: string};
   const router = useRouter();
 
   const [testData, setTestData] = useState({

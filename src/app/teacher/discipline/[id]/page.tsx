@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   Container,
@@ -12,7 +12,6 @@ import {
   List,
   ListItem,
   ListItemText,
-  Divider,
   TextField,
   IconButton,
   Collapse,
@@ -27,7 +26,8 @@ import {
   DialogContent,
   DialogActions,
   Chip,
-} from "@mui/material";
+  CircularProgress,
+} from '@mui/material';
 import {
   Add,
   Groups,
@@ -42,17 +42,16 @@ import {
   DragHandle,
   Person,
   Timer,
-  AccessTime,
   Quiz,
-} from "@mui/icons-material";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useRef, useEffect } from "react";
-import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
-import { format, differenceInHours, differenceInMinutes } from "date-fns";
-import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
-import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
-import { MobileDateTimePicker } from "@mui/x-date-pickers/MobileDateTimePicker";
-import { ru } from "date-fns/locale";
+} from '@mui/icons-material';
+import { useRouter } from 'next/navigation';
+import { useState, useEffect, use } from 'react';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { differenceInHours, differenceInMinutes } from 'date-fns';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { MobileDateTimePicker } from '@mui/x-date-pickers/MobileDateTimePicker';
+import { ru } from 'date-fns/locale';
 
 type Test = {
   id: number;
@@ -89,99 +88,63 @@ type DisciplineType = {
   chapters: Chapter[];
 };
 
-export default function DisciplinePage() {
+export default function DisciplinePage({ params }: { params: { id: string } }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const id = searchParams.get("id");
+  const { id } = use<{ id: string }>(params);
   const [tabValue, setTabValue] = useState(0);
   const [editMode, setEditMode] = useState(false);
-  const [expandedChapters, setExpandedChapters] = useState<
-    Record<number, boolean>
-  >({
-    1: true,
-    2: true,
-    3: true,
-  });
-  const [expandedGroups, setExpandedGroups] = useState<Record<number, boolean>>(
-    {}
-  );
+  const [expandedChapters, setExpandedChapters] = useState<Record<number, boolean>>({});
+  const [expandedGroups, setExpandedGroups] = useState<Record<number, boolean>>({});
   const [assignTestsOpen, setAssignTestsOpen] = useState(false);
   const [deadline, setDeadline] = useState<Date | null>(null);
   const [selectedTests, setSelectedTests] = useState<Test[]>([]);
   const [isTeacher, setIsTeacher] = useState(true);
+  const [addGroupDialogOpen, setAddGroupDialogOpen] = useState(false);
+  const [allTeacherGroups, setAllTeacherGroups] = useState<Group[]>([]);
+  const [groupsToAdd, setGroupsToAdd] = useState<number[]>([]);
 
-  const [discipline, setDiscipline] = useState<DisciplineType>({
-    id: 1,
-    name: "Электромеханика",
-    description: "Основы электромеханических систем и устройств",
-    groups: [
-      {
-        id: 1,
-        name: "EM-201",
-        students: [
-          { id: 1, name: "Иванов Иван", email: "ivanov@example.com" },
-          { id: 2, name: "Петров Петр", email: "petrov@example.com" },
-        ],
-      },
-      {
-        id: 2,
-        name: "EM-202",
-        students: [
-          { id: 3, name: "Сидорова Мария", email: "sidorova@example.com" },
-        ],
-      },
-    ],
-    chapters: [
-      {
-        id: 1,
-        title: "Основные понятия электромеханики",
-        tests: [
-          { id: 1, name: "Тест по базовым понятиям" },
-          { id: 2, name: "Контрольная работа №1" },
-        ],
-      },
-      {
-        id: 2,
-        title: "Электрические машины",
-        tests: [
-          { id: 3, name: "Тест по трансформаторам" },
-          { id: 4, name: "Лабораторная работа" },
-        ],
-      },
-      {
-        id: 3,
-        title: "Автоматизированные системы",
-        tests: [],
-      },
-    ],
-  });
+  const [discipline, setDiscipline] = useState<DisciplineType | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (deadline === null) {
-      setDeadline(new Date());
+    if (!id) {
+      setLoading(false);
+      return;
     }
+    setLoading(true);
+    const fetchDisciplines = async () => {
+      try {
+        const response = await fetch(`/api/discipline/${id}/get`);
+        if (!response.ok) throw new Error('Failed to fetch');
+        const data: DisciplineType = await response.json();
+        setDiscipline(data);
+      } catch (e) {
+        setDiscipline(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDisciplines();
+  }, [id]);
+
+  useEffect(() => {
+    if (deadline === null) setDeadline(new Date());
   }, [deadline]);
 
-  // Функции для редактирования структуры курса
   const onDragEnd = (result: any) => {
-    if (!result.destination) return;
-
-    if (result.type === "CHAPTERS") {
+    if (!result.destination || !discipline) return;
+    if (result.type === 'CHAPTERS') {
       const items = Array.from(discipline.chapters);
       const [reorderedItem] = items.splice(result.source.index, 1);
       items.splice(result.destination.index, 0, reorderedItem);
       setDiscipline({ ...discipline, chapters: items });
-    } else if (result.type === "TESTS") {
-      const chapterIndex = discipline.chapters.findIndex(
-        (ch) => ch.id.toString() === result.destination.droppableId
-      );
+    } else if (result.type === 'TESTS') {
+      const chapterIndex = discipline.chapters.findIndex((ch) => ch.id.toString() === result.destination.droppableId);
       if (chapterIndex === -1) return;
-
       const chapter = discipline.chapters[chapterIndex];
       const items = Array.from(chapter.tests);
       const [reorderedItem] = items.splice(result.source.index, 1);
       items.splice(result.destination.index, 0, reorderedItem);
-
       const newChapters = [...discipline.chapters];
       newChapters[chapterIndex].tests = items;
       setDiscipline({ ...discipline, chapters: newChapters });
@@ -189,105 +152,84 @@ export default function DisciplinePage() {
   };
 
   const addChapter = () => {
+    if (!discipline) return;
+    const newId = -Date.now(); // Временный отрицательный ID для новой главы
     const newChapter = {
-      id: Math.max(...discipline.chapters.map((c) => c.id)) + 1,
+      id: newId,
       title: `Глава ${discipline.chapters.length + 1}: Новая глава`,
       tests: [],
     };
-    setDiscipline({
-      ...discipline,
-      chapters: [...discipline.chapters, newChapter],
-    });
-    setExpandedChapters((prev) => ({ ...prev, [newChapter.id]: true }));
+    setDiscipline({ ...discipline, chapters: [...(discipline.chapters || []), newChapter] });
+    setExpandedChapters((prev) => ({ ...prev, [newId]: true }));
   };
 
   const addTest = (chapterId: number) => {
-    const chapterIndex = discipline.chapters.findIndex(
-      (c) => c.id === chapterId
-    );
+    if (!discipline) return;
+    const chapterIndex = discipline.chapters.findIndex((c) => c.id === chapterId);
     if (chapterIndex === -1) return;
-
-    const newTest = {
-      id:
-        Math.max(
-          ...discipline.chapters.flatMap((c) => c.tests).map((t) => t.id)
-        ) + 1,
-      name: "Новый тест",
-    };
-
+    const newId = -Date.now(); // Временный отрицательный ID для нового теста
+    const newTest = { id: newId, name: 'Новый тест' };
     const newChapters = [...discipline.chapters];
     newChapters[chapterIndex].tests.push(newTest);
     setDiscipline({ ...discipline, chapters: newChapters });
   };
 
-  // Функции для выдачи тестов
+  // --- НОВАЯ ФУНКЦИЯ ---
+  const handleNameChange = (type: 'chapter' | 'test', chapterId: number, newName: string, testId?: number) => {
+    if (!discipline) return;
+    const newChapters = discipline.chapters.map((ch) => {
+      if (type === 'chapter' && ch.id === chapterId) {
+        return { ...ch, title: newName };
+      }
+      if (type === 'test' && ch.id === chapterId) {
+        const newTests = ch.tests.map((t) => (t.id === testId ? { ...t, name: newName } : t));
+        return { ...ch, tests: newTests };
+      }
+      return ch;
+    });
+    setDiscipline({ ...discipline, chapters: newChapters });
+  };
+
   const handleTestSelect = (testId: number, checked: boolean) => {
+    if (!discipline) return;
     const updatedChapters = discipline.chapters.map((chapter) => ({
       ...chapter,
-      tests: chapter.tests.map((test) =>
-        test.id === testId ? { ...test, selected: checked } : test
-      ),
+      tests: chapter.tests.map((test) => (test.id === testId ? { ...test, selected: checked } : test)),
     }));
-
     setDiscipline({ ...discipline, chapters: updatedChapters });
-
     if (checked) {
-      const testToAdd = updatedChapters
-        .flatMap((ch) => ch.tests)
-        .find((t) => t.id === testId);
-      if (testToAdd) {
-        setSelectedTests((prev) => [...prev, testToAdd]);
-      }
+      const testToAdd = updatedChapters.flatMap((ch) => ch.tests).find((t) => t.id === testId);
+      if (testToAdd) setSelectedTests((prev) => [...prev, testToAdd]);
     } else {
       setSelectedTests((prev) => prev.filter((t) => t.id !== testId));
     }
   };
 
   const handleGroupSelect = (groupId: number, checked: boolean) => {
+    if (!discipline) return;
     const updatedGroups = discipline.groups.map((group) => {
       if (group.id === groupId) {
-        const updatedStudents = group.students.map((student) => ({
-          ...student,
-          selected: checked,
-        }));
-        return {
-          ...group,
-          selected: checked,
-          indeterminate: false,
-          students: updatedStudents,
-        };
+        const updatedStudents = group.students.map((student) => ({ ...student, selected: checked }));
+        return { ...group, selected: checked, indeterminate: false, students: updatedStudents };
       }
       return group;
     });
-
     setDiscipline({ ...discipline, groups: updatedGroups });
   };
 
-  const handleStudentSelect = (
-    groupId: number,
-    studentId: number,
-    checked: boolean
-  ) => {
+  const handleStudentSelect = (groupId: number, studentId: number, checked: boolean) => {
+    if (!discipline) return;
     const updatedGroups = discipline.groups.map((group) => {
       if (group.id === groupId) {
         const updatedStudents = group.students.map((student) =>
           student.id === studentId ? { ...student, selected: checked } : student
         );
-
         const allSelected = updatedStudents.every((s) => s.selected);
-        const someSelected =
-          updatedStudents.some((s) => s.selected) && !allSelected;
-
-        return {
-          ...group,
-          selected: allSelected,
-          indeterminate: someSelected,
-          students: updatedStudents,
-        };
+        const someSelected = updatedStudents.some((s) => s.selected) && !allSelected;
+        return { ...group, selected: allSelected, indeterminate: someSelected, students: updatedStudents };
       }
       return group;
     });
-
     setDiscipline({ ...discipline, groups: updatedGroups });
   };
 
@@ -299,14 +241,13 @@ export default function DisciplinePage() {
   };
 
   const handleAssignTests = () => {
-    console.log("Выдаем тесты:", {
+    if (!discipline) return;
+    console.log('Выдаем тесты:', {
       tests: selectedTests,
       deadline,
       selectedGroups: discipline.groups.filter((g) => g.selected),
       selectedStudents: discipline.groups.flatMap((g) =>
-        g.students
-          .filter((s) => s.selected)
-          .map((s) => ({ ...s, groupId: g.id }))
+        g.students.filter((s) => s.selected).map((s) => ({ ...s, groupId: g.id }))
       ),
     });
     setAssignTestsOpen(false);
@@ -314,60 +255,163 @@ export default function DisciplinePage() {
   };
 
   const toggleChapter = (chapterId: number) => {
-    if (editMode) return;
-    setExpandedChapters((prev) => ({
-      ...prev,
-      [chapterId]: !prev[chapterId],
-    }));
+    // if (editMode) return;
+    setExpandedChapters((prev) => ({ ...prev, [chapterId]: !prev[chapterId] }));
   };
 
   const toggleGroup = (groupId: number) => {
-    setExpandedGroups((prev) => ({
-      ...prev,
-      [groupId]: !prev[groupId],
-    }));
+    setExpandedGroups((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
   };
 
   const handleSaveStructure = async () => {
-    // Формируем структуру для API
+    if (!discipline) return;
+    // --- ОБНОВЛЕННАЯ СТРУКТУРА ДЛЯ API ---
     const chapters = discipline.chapters.map((chapter, chapterIdx) => ({
       id: chapter.id,
+      title: chapter.title, // Отправляем название
       order: chapterIdx,
       tests: chapter.tests.map((test, testIdx) => ({
         id: test.id,
+        name: test.name, // Отправляем название
         order: testIdx,
       })),
     }));
 
     try {
       const res = await fetch(`/api/discipline/${discipline.id}/structure`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ chapters }),
       });
-      if (!res.ok) throw new Error("Ошибка сохранения структуры");
-      // Можно показать уведомление об успехе
+      if (!res.ok) throw new Error('Ошибка сохранения структуры');
       setEditMode(false);
     } catch (e) {
-      alert("Ошибка при сохранении структуры");
+      alert('Ошибка при сохранении структуры');
     }
   };
 
+  // Функция для открытия диалога и загрузки всех групп преподавателя
+  const handleOpenAddGroupDialog = async () => {
+    try {
+      const response = await fetch('/api/groups/my');
+      if (!response.ok) throw new Error('Failed to fetch teacher groups');
+      const data = await response.json();
+      // Убедимся, что data.groups это массив
+      if (Array.isArray(data.groups)) {
+        setAllTeacherGroups(data.groups);
+      } else {
+        setAllTeacherGroups([]);
+      }
+    } catch (error) {
+      console.error(error);
+      setAllTeacherGroups([]);
+    }
+    setAddGroupDialogOpen(true);
+  };
+
+  // Функция для выбора группы в диалоге
+  const handleToggleGroupToAdd = (groupId: number) => {
+    setGroupsToAdd((prev) => (prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId]));
+  };
+
+  // Функция для отправки выбранных групп на сервер
+  const handleConfirmAddGroups = async () => {
+    if (groupsToAdd.length === 0) return;
+    try {
+      const res = await fetch(`/api/discipline/${id}/groups`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupIds: groupsToAdd }),
+      });
+      if (!res.ok) throw new Error('Failed to add groups');
+
+      // Обновляем UI: добавляем новые группы в состояние
+      const addedGroups = allTeacherGroups.filter((g) => groupsToAdd.includes(g.id));
+      setDiscipline((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          groups: [...prev.groups, ...addedGroups],
+        };
+      });
+
+      setAddGroupDialogOpen(false);
+      setGroupsToAdd([]);
+    } catch (error) {
+      console.error(error);
+      alert('Ошибка при добавлении групп');
+    }
+  };
+
+  if (loading) {
+    return (
+      <Container
+        maxWidth="xl"
+        sx={{ py: 4, display: 'flex', justifyContent: 'center', mt: 8 }}
+      >
+        <CircularProgress size={60} />
+      </Container>
+    );
+  }
+
+  if (!discipline) {
+    return (
+      <Container
+        maxWidth="xl"
+        sx={{ py: 4, textAlign: 'center' }}
+      >
+        <Typography
+          variant="h5"
+          color="error"
+          sx={{ mt: 8 }}
+        >
+          Не удалось загрузить данные о дисциплине.
+        </Typography>
+        <Button
+          onClick={() => router.back()}
+          sx={{ mt: 2 }}
+        >
+          Вернуться назад
+        </Button>
+      </Container>
+    );
+  }
+
+  // Фильтруем группы, которые уже есть на курсе, чтобы не показывать их в диалоге
+  const availableGroups = allTeacherGroups.filter(
+    (teacherGroup) => !discipline?.groups.some((courseGroup) => courseGroup.id === teacherGroup.id)
+  );
+
   return (
-    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Box sx={{ display: "flex", alignItems: "center", mb: 4 }}>
-          <IconButton onClick={() => router.back()} sx={{ mr: 2 }}>
+    <LocalizationProvider
+      dateAdapter={AdapterDateFns}
+      adapterLocale={ru}
+    >
+      <Container
+        maxWidth="xl"
+        sx={{ py: 4 }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
+          <IconButton
+            onClick={() => router.back()}
+            sx={{ mr: 2 }}
+          >
             <ArrowBack />
           </IconButton>
-          <Typography variant="h4" sx={{ fontWeight: 700 }}>
+          <Typography
+            variant="h4"
+            sx={{ fontWeight: 700 }}
+          >
             {discipline.name}
           </Typography>
           <Box sx={{ flexGrow: 1 }} />
           {isTeacher &&
             tabValue === 0 &&
             (editMode ? (
-              <Stack direction="row" spacing={2}>
+              <Stack
+                direction="row"
+                spacing={2}
+              >
                 <Button
                   startIcon={<Close />}
                   onClick={() => setEditMode(false)}
@@ -403,7 +447,10 @@ export default function DisciplinePage() {
             ))}
         </Box>
 
-        <Typography color="text.secondary" sx={{ mb: 4 }}>
+        <Typography
+          color="text.secondary"
+          sx={{ mb: 4 }}
+        >
           {discipline.description}
         </Typography>
 
@@ -412,9 +459,20 @@ export default function DisciplinePage() {
           onChange={(_, newValue) => !editMode && setTabValue(newValue)}
           sx={{ mb: 4 }}
         >
-          <Tab label="Структура курса" disabled={editMode} />
-          <Tab label="Группы" disabled={editMode} />
-          {isTeacher && <Tab label="Настройки" disabled={editMode} />}
+          <Tab
+            label="Структура курса"
+            disabled={editMode}
+          />
+          <Tab
+            label="Группы"
+            disabled={editMode}
+          />
+          {isTeacher && (
+            <Tab
+              label="Настройки"
+              disabled={editMode}
+            />
+          )}
         </Tabs>
 
         {tabValue === 0 && (
@@ -422,10 +480,16 @@ export default function DisciplinePage() {
             <CardContent>
               {editMode ? (
                 <DragDropContext onDragEnd={onDragEnd}>
-                  <Droppable droppableId="chapters" type="CHAPTERS">
+                  <Droppable
+                    droppableId="chapters"
+                    type="CHAPTERS"
+                  >
                     {(provided) => (
-                      <div {...provided.droppableProps} ref={provided.innerRef}>
-                        {discipline.chapters.map((chapter, chapterIndex) => (
+                      <div
+                        {...provided.droppableProps}
+                        ref={provided.innerRef}
+                      >
+                        {discipline.chapters?.map((chapter, chapterIndex) => (
                           <Draggable
                             key={chapter.id}
                             draggableId={`chapter-${chapter.id}`}
@@ -439,26 +503,31 @@ export default function DisciplinePage() {
                                 sx={{ mb: 2 }}
                               >
                                 <ListItemButton
-                                  onClick={() => toggleChapter(chapter.id)}
                                   sx={{
                                     p: 2,
-                                    bgcolor: "background.paper",
-                                    borderBottom: "1px solid",
-                                    borderColor: "divider",
+                                    bgcolor: 'background.paper',
+                                    borderBottom: '1px solid',
+                                    borderColor: 'divider',
                                   }}
                                 >
                                   <div {...provided.dragHandleProps}>
                                     <DragHandle sx={{ mr: 2 }} />
                                   </div>
-                                  <Folder
-                                    sx={{ mr: 2, color: "text.secondary" }}
+                                  <Folder sx={{ mr: 2, color: 'text.secondary' }} />
+                                  {/* --- ИЗМЕНЕНИЕ: TextField для названия главы --- */}
+                                  <TextField
+                                    variant="standard"
+                                    fullWidth
+                                    value={chapter.title}
+                                    onChange={(e) => handleNameChange('chapter', chapter.id, e.target.value)}
+                                    onClick={(e) => e.stopPropagation()}
                                   />
-                                  <ListItemText primary={chapter.title} />
-                                  {expandedChapters[chapter.id] ? (
-                                    <ExpandLess />
-                                  ) : (
-                                    <ExpandMore />
-                                  )}
+                                  <IconButton
+                                    onClick={() => toggleChapter(chapter.id)}
+                                    sx={{ ml: 1 }}
+                                  >
+                                    {expandedChapters[chapter.id] ? <ExpandLess /> : <ExpandMore />}
+                                  </IconButton>
                                 </ListItemButton>
 
                                 <Collapse in={expandedChapters[chapter.id]}>
@@ -470,64 +539,62 @@ export default function DisciplinePage() {
                                       <div
                                         {...provided.droppableProps}
                                         ref={provided.innerRef}
-                                        style={{ paddingLeft: "40px" }}
+                                        style={{ paddingLeft: '40px' }}
                                       >
-                                        <List dense disablePadding>
-                                          {chapter.tests.map(
-                                            (test, testIndex) => (
-                                              <Draggable
-                                                key={test.id}
-                                                draggableId={`test-${test.id}`}
-                                                index={testIndex}
-                                              >
-                                                {(provided) => (
-                                                  <Paper
-                                                    ref={provided.innerRef}
-                                                    {...provided.draggableProps}
-                                                    elevation={0}
-                                                    sx={{
-                                                      borderLeft: "2px solid",
-                                                      borderColor: "divider",
-                                                      mb: 0.5,
-                                                    }}
-                                                  >
-                                                    <ListItemButton>
-                                                      <div
-                                                        {...provided.dragHandleProps}
-                                                      >
-                                                        <DragHandle
-                                                          sx={{ mr: 2 }}
-                                                        />
-                                                      </div>
-                                                      <Avatar
-                                                        sx={{
-                                                          bgcolor:
-                                                            "background.default",
-                                                          width: 24,
-                                                          height: 24,
-                                                          mr: 2,
-                                                        }}
-                                                      >
-                                                        <InsertDriveFile
-                                                          color="primary"
-                                                          fontSize="small"
-                                                        />
-                                                      </Avatar>
-                                                      <ListItemText
-                                                        primary={test.name}
+                                        <List
+                                          dense
+                                          disablePadding
+                                        >
+                                          {chapter.tests?.map((test, testIndex) => (
+                                            <Draggable
+                                              key={test.id}
+                                              draggableId={`test-${test.id}`}
+                                              index={testIndex}
+                                            >
+                                              {(provided) => (
+                                                <Paper
+                                                  ref={provided.innerRef}
+                                                  {...provided.draggableProps}
+                                                  elevation={0}
+                                                  sx={{ borderLeft: '2px solid', borderColor: 'divider', mb: 0.5 }}
+                                                >
+                                                  <ListItemButton>
+                                                    <div {...provided.dragHandleProps}>
+                                                      <DragHandle sx={{ mr: 2 }} />
+                                                    </div>
+                                                    <Avatar
+                                                      sx={{
+                                                        bgcolor: 'background.default',
+                                                        width: 24,
+                                                        height: 24,
+                                                        mr: 2,
+                                                      }}
+                                                    >
+                                                      <InsertDriveFile
+                                                        color="primary"
+                                                        fontSize="small"
                                                       />
-                                                    </ListItemButton>
-                                                  </Paper>
-                                                )}
-                                              </Draggable>
-                                            )
-                                          )}
+                                                    </Avatar>
+                                                    {/* --- ИЗМЕНЕНИЕ: TextField для названия теста --- */}
+                                                    <TextField
+                                                      variant="standard"
+                                                      fullWidth
+                                                      value={test.name}
+                                                      onChange={(e) =>
+                                                        handleNameChange('test', chapter.id, e.target.value, test.id)
+                                                      }
+                                                      onClick={(e) => e.stopPropagation()}
+                                                    />
+                                                  </ListItemButton>
+                                                </Paper>
+                                              )}
+                                            </Draggable>
+                                          ))}
                                           {provided.placeholder}
                                         </List>
                                       </div>
                                     )}
                                   </Droppable>
-
                                   <Box sx={{ pl: 4, pb: 1 }}>
                                     <Button
                                       size="small"
@@ -546,7 +613,6 @@ export default function DisciplinePage() {
                       </div>
                     )}
                   </Droppable>
-
                   <Box sx={{ p: 2 }}>
                     <Button
                       fullWidth
@@ -560,64 +626,69 @@ export default function DisciplinePage() {
                 </DragDropContext>
               ) : (
                 <>
-                  {discipline.chapters.map((chapter) => (
-                    <Paper key={chapter.id} elevation={2} sx={{ mb: 2 }}>
-                      <ListItemButton onClick={() => toggleChapter(chapter.id)}>
-                        <Folder sx={{ mr: 2, color: "text.secondary" }} />
-                        <ListItemText primary={chapter.title} />
-                        <ExpandMore
-                          sx={{
-                            transform: expandedChapters[chapter.id]
-                              ? "rotate(180deg)"
-                              : "none",
-                            transition: "transform 0.2s",
-                          }}
-                        />
-                      </ListItemButton>
-                      <Collapse in={expandedChapters[chapter.id]}>
-                        <List dense disablePadding sx={{ pl: 4 }}>
-                          {chapter.tests.map((test) => (
-                            <ListItem
-                              key={test.id}
-                              secondaryAction={
-                                isTeacher && (
-                                  <Checkbox
-                                    edge="end"
-                                    checked={test.selected || false}
-                                    onChange={(e) =>
-                                      handleTestSelect(
-                                        test.id,
-                                        e.target.checked
-                                      )
-                                    }
-                                  />
-                                )
-                              }
+                  {discipline.chapters?.length > 0 ? (
+                    discipline.chapters.map((chapter) => (
+                      <Paper
+                        key={chapter.id}
+                        elevation={2}
+                        sx={{ mb: 2 }}
+                      >
+                        <ListItemButton onClick={() => toggleChapter(chapter.id)}>
+                          <Folder sx={{ mr: 2, color: 'text.secondary' }} />
+                          <ListItemText primary={chapter.title} />
+                          <ExpandMore
+                            sx={{
+                              transform: expandedChapters[chapter.id] ? 'rotate(180deg)' : 'none',
+                              transition: 'transform 0.2s',
+                            }}
+                          />
+                        </ListItemButton>
+                        <Collapse in={expandedChapters[chapter.id]}>
+                          {chapter.tests?.length > 0 ? (
+                            <List
+                              dense
+                              disablePadding
+                              sx={{ pl: 4 }}
                             >
-                              <ListItemButton
-                                onClick={() => router.push(`/tests/${test.id}`)}
-                              >
-                                <Avatar
-                                  sx={{
-                                    bgcolor: "background.default",
-                                    width: 24,
-                                    height: 24,
-                                    mr: 2,
-                                  }}
+                              {chapter.tests.map((test) => (
+                                <ListItem
+                                  key={test.id}
+                                  secondaryAction={
+                                    isTeacher && (
+                                      <Checkbox
+                                        edge="end"
+                                        checked={test.selected || false}
+                                        onChange={(e) => handleTestSelect(test.id, e.target.checked)}
+                                      />
+                                    )
+                                  }
                                 >
-                                  <InsertDriveFile
-                                    color="primary"
-                                    fontSize="small"
-                                  />
-                                </Avatar>
-                                <ListItemText primary={test.name} />
-                              </ListItemButton>
-                            </ListItem>
-                          ))}
-                        </List>
-                      </Collapse>
-                    </Paper>
-                  ))}
+                                  <ListItemButton onClick={() => router.push(`/test/${test.id}/edit`)}>
+                                    <Avatar sx={{ bgcolor: 'background.default', width: 24, height: 24, mr: 2 }}>
+                                      <InsertDriveFile
+                                        color="primary"
+                                        fontSize="small"
+                                      />
+                                    </Avatar>
+                                    <ListItemText primary={test.name} />
+                                  </ListItemButton>
+                                </ListItem>
+                              ))}
+                            </List>
+                          ) : (
+                            <Box sx={{ p: 2, pl: 4, color: 'text.secondary' }}>
+                              <Typography>В этой главе пока нет тестов.</Typography>
+                            </Box>
+                          )}
+                        </Collapse>
+                      </Paper>
+                    ))
+                  ) : (
+                    <Box sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
+                      <Typography>В этой дисциплине пока нет глав.</Typography>
+                      <Typography variant="body2">Нажмите "Редактировать", чтобы добавить первую главу.</Typography>
+                    </Box>
+                  )}
                 </>
               )}
             </CardContent>
@@ -627,75 +698,91 @@ export default function DisciplinePage() {
         {tabValue === 1 && (
           <Card elevation={3}>
             <CardContent>
-              <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
-                Группы на курсе
-              </Typography>
-              <List>
-                {discipline.groups.map((group) => (
-                  <Paper key={group.id} elevation={2} sx={{ mb: 2 }}>
-                    <ListItemButton onClick={() => toggleGroup(group.id)}>
-                      {isTeacher && (
-                        <Checkbox
-                          edge="start"
-                          checked={group.selected || false}
-                          indeterminate={group.indeterminate}
-                          onChange={(e) =>
-                            handleGroupSelect(group.id, e.target.checked)
-                          }
-                          onClick={(e) => e.stopPropagation()}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Typography
+                  variant="h6"
+                  sx={{ fontWeight: 600 }}
+                >
+                  Группы на курсе
+                </Typography>
+                {isTeacher && (
+                  <Button
+                    variant="outlined"
+                    startIcon={<Add />}
+                    onClick={handleOpenAddGroupDialog}
+                  >
+                    Добавить группу
+                  </Button>
+                )}
+              </Box>
+              {discipline.groups?.length > 0 ? (
+                <List>
+                  {discipline.groups.map((group) => (
+                    <Paper
+                      key={group.id}
+                      elevation={2}
+                      sx={{ mb: 2 }}
+                    >
+                      <ListItemButton onClick={() => toggleGroup(group.id)}>
+                        {isTeacher && (
+                          <Checkbox
+                            edge="start"
+                            checked={group.selected || false}
+                            indeterminate={group.indeterminate}
+                            onChange={(e) => handleGroupSelect(group.id, e.target.checked)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        )}
+                        <Groups sx={{ mr: 2, color: 'text.secondary' }} />
+                        <ListItemText
+                          primary={group.name}
+                          secondary={`${group.students.length} студентов`}
                         />
-                      )}
-                      <Groups sx={{ mr: 2, color: "text.secondary" }} />
-                      <ListItemText
-                        primary={group.name}
-                        secondary={`${group.students.length} студентов`}
-                      />
-                      <ExpandMore
-                        sx={{
-                          transform: expandedGroups[group.id]
-                            ? "rotate(180deg)"
-                            : "none",
-                          transition: "transform 0.2s",
-                        }}
-                      />
-                    </ListItemButton>
-                    <Collapse in={expandedGroups[group.id]}>
-                      <List dense disablePadding sx={{ pl: 4 }}>
-                        {group.students.map((student) => (
-                          <ListItem
-                            key={student.id}
-                            secondaryAction={
-                              isTeacher && (
-                                <Checkbox
-                                  edge="end"
-                                  checked={student.selected || false}
-                                  onChange={(e) =>
-                                    handleStudentSelect(
-                                      group.id,
-                                      student.id,
-                                      e.target.checked
-                                    )
-                                  }
-                                />
-                              )
-                            }
-                          >
-                            <ListItemAvatar>
-                              <Avatar>
-                                <Person />
-                              </Avatar>
-                            </ListItemAvatar>
-                            <ListItemText
-                              primary={student.name}
-                              secondary={student.email}
-                            />
-                          </ListItem>
-                        ))}
-                      </List>
-                    </Collapse>
-                  </Paper>
-                ))}
-              </List>
+                        <ExpandMore
+                          sx={{
+                            transform: expandedGroups[group.id] ? 'rotate(180deg)' : 'none',
+                            transition: 'transform 0.2s',
+                          }}
+                        />
+                      </ListItemButton>
+                      <Collapse in={expandedGroups[group.id]}>
+                        <List
+                          dense
+                          disablePadding
+                          sx={{ pl: 4 }}
+                        >
+                          {group.students.map((student) => (
+                            <ListItem
+                              key={student.id}
+                              secondaryAction={
+                                isTeacher && (
+                                  <Checkbox
+                                    edge="end"
+                                    checked={student.selected || false}
+                                    onChange={(e) => handleStudentSelect(group.id, student.id, e.target.checked)}
+                                  />
+                                )
+                              }
+                            >
+                              <ListItemAvatar>
+                                <Avatar>
+                                  <Person />
+                                </Avatar>
+                              </ListItemAvatar>
+                              <ListItemText
+                                primary={student.name}
+                                secondary={student.email}
+                              />
+                            </ListItem>
+                          ))}
+                        </List>
+                      </Collapse>
+                    </Paper>
+                  ))}
+                </List>
+              ) : (
+                <Typography color="text.secondary">К этой дисциплине пока не привязана ни одна группа.</Typography>
+              )}
             </CardContent>
           </Card>
         )}
@@ -703,7 +790,10 @@ export default function DisciplinePage() {
         {tabValue === 2 && isTeacher && (
           <Card elevation={3}>
             <CardContent>
-              <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
+              <Typography
+                variant="h6"
+                sx={{ mb: 3, fontWeight: 600 }}
+              >
                 Настройки дисциплины
               </Typography>
               <TextField
@@ -736,17 +826,20 @@ export default function DisciplinePage() {
             Выдать тесты
             <IconButton
               onClick={() => setAssignTestsOpen(false)}
-              sx={{ position: "absolute", right: 8, top: 8 }}
+              sx={{ position: 'absolute', right: 8, top: 8 }}
             >
               <Close />
             </IconButton>
           </DialogTitle>
           <DialogContent dividers>
             <Box sx={{ mb: 3 }}>
-              <Typography variant="subtitle1" sx={{ mb: 1 }}>
+              <Typography
+                variant="subtitle1"
+                sx={{ mb: 1 }}
+              >
                 Выбранные тесты:
               </Typography>
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                 {selectedTests.map((test) => (
                   <Chip
                     key={test.id}
@@ -758,7 +851,10 @@ export default function DisciplinePage() {
             </Box>
 
             <Box sx={{ mb: 3 }}>
-              <Typography variant="subtitle1" sx={{ mb: 2 }}>
+              <Typography
+                variant="subtitle1"
+                sx={{ mb: 2 }}
+              >
                 Установите срок сдачи:
               </Typography>
               <MobileDateTimePicker
@@ -769,47 +865,55 @@ export default function DisciplinePage() {
                 format="dd.MM.yyyy HH:mm"
               />
               {deadline && (
-                <Box sx={{ mt: 2, display: "flex", alignItems: "center" }}>
-                  <Timer fontSize="small" sx={{ mr: 1 }} />
-                  <Typography variant="body2">
-                    Осталось: {calculateTimeLeft(deadline)}
-                  </Typography>
+                <Box sx={{ mt: 2, display: 'flex', alignItems: 'center' }}>
+                  <Timer
+                    fontSize="small"
+                    sx={{ mr: 1 }}
+                  />
+                  <Typography variant="body2">Осталось: {calculateTimeLeft(deadline)}</Typography>
                 </Box>
               )}
             </Box>
 
-            <Typography variant="subtitle1" sx={{ mb: 2 }}>
+            <Typography
+              variant="subtitle1"
+              sx={{ mb: 2 }}
+            >
               Выберите группы и студентов:
             </Typography>
             <List>
               {discipline.groups.map((group) => (
-                <Paper key={group.id} elevation={2} sx={{ mb: 2 }}>
+                <Paper
+                  key={group.id}
+                  elevation={2}
+                  sx={{ mb: 2 }}
+                >
                   <ListItemButton onClick={() => toggleGroup(group.id)}>
                     <Checkbox
                       edge="start"
                       checked={group.selected || false}
                       indeterminate={group.indeterminate}
-                      onChange={(e) =>
-                        handleGroupSelect(group.id, e.target.checked)
-                      }
+                      onChange={(e) => handleGroupSelect(group.id, e.target.checked)}
                       onClick={(e) => e.stopPropagation()}
                     />
-                    <Groups sx={{ mr: 2, color: "text.secondary" }} />
+                    <Groups sx={{ mr: 2, color: 'text.secondary' }} />
                     <ListItemText
                       primary={group.name}
                       secondary={`${group.students.length} студентов`}
                     />
                     <ExpandMore
                       sx={{
-                        transform: expandedGroups[group.id]
-                          ? "rotate(180deg)"
-                          : "none",
-                        transition: "transform 0.2s",
+                        transform: expandedGroups[group.id] ? 'rotate(180deg)' : 'none',
+                        transition: 'transform 0.2s',
                       }}
                     />
                   </ListItemButton>
                   <Collapse in={expandedGroups[group.id]}>
-                    <List dense disablePadding sx={{ pl: 4 }}>
+                    <List
+                      dense
+                      disablePadding
+                      sx={{ pl: 4 }}
+                    >
                       {group.students.map((student) => (
                         <ListItem
                           key={student.id}
@@ -817,13 +921,7 @@ export default function DisciplinePage() {
                             <Checkbox
                               edge="end"
                               checked={student.selected || false}
-                              onChange={(e) =>
-                                handleStudentSelect(
-                                  group.id,
-                                  student.id,
-                                  e.target.checked
-                                )
-                              }
+                              onChange={(e) => handleStudentSelect(group.id, student.id, e.target.checked)}
                             />
                           }
                         >
@@ -849,14 +947,61 @@ export default function DisciplinePage() {
             <Button
               variant="contained"
               onClick={handleAssignTests}
-              disabled={
-                !deadline ||
-                !discipline.groups.some(
-                  (g) => g.selected || g.students.some((s) => s.selected)
-                )
-              }
+              disabled={!deadline || !discipline.groups.some((g) => g.selected || g.students.some((s) => s.selected))}
             >
               Выдать тесты
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Диалог добавления групп */}
+        <Dialog
+          open={addGroupDialogOpen}
+          onClose={() => setAddGroupDialogOpen(false)}
+          fullWidth
+          maxWidth="sm"
+        >
+          <DialogTitle>Добавить группы на курс</DialogTitle>
+          <DialogContent dividers>
+            {availableGroups.length > 0 ? (
+              <List>
+                {availableGroups.map((group) => (
+                  <ListItem
+                    key={group.id}
+                    disablePadding
+                  >
+                    <ListItemButton onClick={() => handleToggleGroupToAdd(group.id)}>
+                      <Checkbox
+                        edge="start"
+                        checked={groupsToAdd.includes(group.id)}
+                        tabIndex={-1}
+                        disableRipple
+                      />
+                      <ListItemText
+                        primary={group.name}
+                        secondary={`${group.students?.length || 0} студентов`}
+                      />
+                    </ListItemButton>
+                  </ListItem>
+                ))}
+              </List>
+            ) : (
+              <Typography
+                color="text.secondary"
+                sx={{ p: 2, textAlign: 'center' }}
+              >
+                Все ваши группы уже добавлены на этот курс, или у вас нет групп.
+              </Typography>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setAddGroupDialogOpen(false)}>Отмена</Button>
+            <Button
+              variant="contained"
+              onClick={handleConfirmAddGroups}
+              disabled={groupsToAdd.length === 0}
+            >
+              Добавить
             </Button>
           </DialogActions>
         </Dialog>

@@ -10,15 +10,11 @@ import {
   Grid,
   Avatar,
   Chip,
-  Paper,
   List,
   ListItem,
-  ListItemAvatar,
   ListItemText,
-  ListItemButton,
   Tabs,
   Tab,
-  Divider,
   IconButton,
   Dialog,
   DialogTitle,
@@ -324,7 +320,7 @@ export default function StudentDashboard() {
         {tabValue === 1 && (
           <Grid container spacing={3}>
             {disciplines.map((discipline) => (
-              <Grid item xs={12} sm={6} md={4} key={discipline.id}>
+              <Grid sx={{xs: 12, sm: 6, md: 4}} key={discipline.id}>
                 <Card
                   variant="outlined"
                   sx={{ cursor: "pointer", "&:hover": { boxShadow: 2 } }}
