@@ -81,11 +81,11 @@ export default function TestPage({ params }: { params: Promise<{ id: string }> }
                                         })
                                         .then((data) => {
                                             if (!ignore) {
-                                                setTestData(data.chapter.test);
+                                                setTestData(data);
                                                 setLoading(false);
-                                                const questions = data.chapter.test.questions || [];
+                                                const questions = data.questions || [];
                                                 const firstUnanswered = questions.findIndex(
-                                                    (q: any) => !(q.question_id in parsedAnswers)
+                                                    (q: any) => !(q.id in parsedAnswers)
                                                 );
                                                 setActiveQuestion(firstUnanswered !== -1 ? firstUnanswered : 0);
                                             }
@@ -106,7 +106,7 @@ export default function TestPage({ params }: { params: Promise<{ id: string }> }
                     })
                     .then((data) => {
                         if (!ignore) {
-                            setTestData(data.chapter.test);
+                            setTestData(data);
                             setLoading(false);
                             if (!Object.keys(answers).length) {
                                 setActiveQuestion(0);
@@ -164,7 +164,7 @@ export default function TestPage({ params }: { params: Promise<{ id: string }> }
     };
 
     // 5. Отправка ответа на вопрос
-    const sendAnswer = async (questionId: number, answer_option_id: number) => {
+    const sendAnswer = useCallback(async (questionId: number, answer_option_id: number | number[]) => {
         setSubmitting(true);
         try {
             const res = await fetch(`/api/test/${id}/answer`, {
@@ -185,16 +185,16 @@ export default function TestPage({ params }: { params: Promise<{ id: string }> }
         } finally {
             setSubmitting(false);
         }
-    };
+    }, [id])
 
     const questions = testData?.questions || [];
 
     // 6. Клик "Следующий вопрос"
     const handleNext = async () => {
         const q = questions[activeQuestion];
-        const answer = answers[q.question_id];
+        const answer = answers[q.id];
         if (answer !== undefined) {
-            await sendAnswer(q.question_id, answer);
+            await sendAnswer(q.id, answer);
         }
         setActiveQuestion((prev) => prev + 1);
     };
@@ -202,9 +202,9 @@ export default function TestPage({ params }: { params: Promise<{ id: string }> }
     // 7. Клик "Завершить тест"
     const handleFinish = useCallback(async () => {
         const q = questions[activeQuestion];
-        const answer = answers[q.question_id];
+        const answer = answers[q.id];
         if (answer !== undefined) {
-            await sendAnswer(q.question_id, answer);
+            await sendAnswer(q.id, answer);
         }
         setSubmitting(true);
         try {
@@ -216,7 +216,6 @@ export default function TestPage({ params }: { params: Promise<{ id: string }> }
                 const data = await res.json();
                 throw new Error(data.error || data.message || 'Ошибка завершения теста');
             }
-            // Очищаем localStorage после завершения теста
             router.push(`/tests/result/${id}`);
         } catch (e: any) {
             setError(e.message);
@@ -232,8 +231,23 @@ export default function TestPage({ params }: { params: Promise<{ id: string }> }
 
     if (loading) {
         return (
-            <Container maxWidth="md" sx={{ py: 4 }}>
-                <Typography>Загрузка...</Typography>
+            <Container 
+            maxWidth="md"
+            sx={{ py: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh' }}
+            >
+                <Button loading={loading} loadingPosition='end' size='large' 
+                sx={{
+                    '&.Mui-disabled': {
+                        color: 'black',
+                        fontSize: '20px',
+                    },
+                    '.MuiCircularProgress-root': {
+                        width: '25px !important', // Задаем нужную ширину
+                        height: '25px !important', // и высоту
+                    }
+                    }}>
+                        Загрузка... 
+                    </Button>
             </Container>
         );
     }
@@ -241,12 +255,41 @@ export default function TestPage({ params }: { params: Promise<{ id: string }> }
     if (error) {
         return (
             <Container maxWidth="md" sx={{ py: 4 }}>
-                <Alert severity="error">{error}</Alert>
+                <h1 style={{marginBottom: '20px'}}>Произошла ошибка...</h1>
+                    {error === 'No token' ? 
+                        <Alert severity="error">
+                            <p>У вас нет активной сессии. Войдите в свой аккаунт.</p>
+                            <Button 
+                            onClick={() => router.push('/auth/login')} 
+                            sx={{mt: '10px'}} 
+                            variant='contained'>
+                                Войти
+                            </Button>
+                        </Alert>
+                        :
+                        <Alert severity="error">
+                            <p>{error}</p>
+                            <div style={{display: 'flex', gap: '10px'}}>
+                                <Button 
+                                onClick={() => router.refresh()} 
+                                sx={{mt: '10px'}} 
+                                variant='contained'>
+                                    Перезагрузить страницу
+                                </Button>
+
+                                <Button 
+                                onClick={() => router.refresh()} 
+                                sx={{mt: '10px'}} 
+                                variant='contained'>
+                                    Перейти на главную
+                                </Button>
+                            </div>
+                        </Alert>
+                    }
             </Container>
         );
    }
 
-    // --- Новый блок: если тест завершён, показываем сообщение и кнопку ---
     if (isCompleted) {
         return (
             <Container
@@ -281,6 +324,8 @@ export default function TestPage({ params }: { params: Promise<{ id: string }> }
         );
     }
 
+    const currentQuestion = questions[activeQuestion];
+
     return (
         <Container maxWidth="md" sx={{ py: 4 }}>
             <Button
@@ -293,7 +338,7 @@ export default function TestPage({ params }: { params: Promise<{ id: string }> }
 
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
                 <Typography variant="h4" sx={{ fontWeight: 700 }}>
-                    {testData.test_title || testData.title}
+                    {testData.title}
                 </Typography>
                 <Chip
                     icon={<TimerOutlined />}
@@ -302,10 +347,6 @@ export default function TestPage({ params }: { params: Promise<{ id: string }> }
                     variant="outlined"
                 />
             </Box>
-
-            <Typography color="text.secondary" sx={{ mb: 4 }}>
-                {testData.description || ''}
-            </Typography>
 
             <LinearProgress
                 variant="determinate"
@@ -320,24 +361,24 @@ export default function TestPage({ params }: { params: Promise<{ id: string }> }
                     </Typography>
 
                     <Typography variant="body1" sx={{ mb: 4, fontWeight: 500 }}>
-                        {questions[activeQuestion]?.question_text}
+                        {currentQuestion?.question_text}
                     </Typography>
 
-                    {questions[activeQuestion]?.question_type === 'single' ? (
+                    {currentQuestion?.question_type === 'single' ? (
                         <RadioGroup
-                            value={answers[questions[activeQuestion].question_id] ?? ''}
+                            value={answers[currentQuestion.id] ?? ''}
                             onChange={(e) => {
                                 setAnswers((prev) => ({
                                     ...prev,
-                                    [questions[activeQuestion].question_id]: Number(e.target.value),
+                                    [currentQuestion.id]: Number(e.target.value),
                                 }));
                             }}
                         >
-                            {questions[activeQuestion].options.map(
+                            {currentQuestion.answer_options.map(
                                 (option: any) => (
                                     <FormControlLabel
-                                        key={option.answer_option_id}
-                                        value={option.answer_option_id}
+                                        key={option.id}
+                                        value={option.id}
                                         control={<Radio />}
                                         label={option.option_text}
                                         sx={{ mb: 1 }}
@@ -348,29 +389,29 @@ export default function TestPage({ params }: { params: Promise<{ id: string }> }
                         </RadioGroup>
                     ) : (
                         <Box>
-                            {questions[activeQuestion].options.map(
+                            {currentQuestion.answer_options.map(
                                 (option: any) => (
                                     <FormControlLabel
-                                        key={option.answer_option_id}
+                                        key={option.id}
                                         control={
                                             <Checkbox
                                                 checked={
-                                                    Array.isArray(answers[questions[activeQuestion].question_id])
-                                                        ? answers[questions[activeQuestion].question_id].includes(option.answer_option_id)
+                                                    Array.isArray(answers[currentQuestion.id])
+                                                        ? answers[currentQuestion.id].includes(option.id)
                                                         : false
                                                 }
                                                 onChange={(e) => {
                                                     const currentAnswers =
-                                                        Array.isArray(answers[questions[activeQuestion].question_id])
-                                                            ? answers[questions[activeQuestion].question_id]
+                                                        Array.isArray(answers[currentQuestion.id])
+                                                            ? answers[currentQuestion.id]
                                                             : [];
                                                     const newAnswers = e.target.checked
-                                                        ? [...currentAnswers, option.answer_option_id]
-                                                        : currentAnswers.filter((id: number) => id !== option.answer_option_id);
+                                                        ? [...currentAnswers, option.id]
+                                                        : currentAnswers.filter((id: number) => id !== option.id);
 
                                                     setAnswers((prev) => ({
                                                         ...prev,
-                                                        [questions[activeQuestion].question_id]: newAnswers,
+                                                        [currentQuestion.id]: newAnswers,
                                                     }));
                                                 }}
                                                 disabled={submitting}

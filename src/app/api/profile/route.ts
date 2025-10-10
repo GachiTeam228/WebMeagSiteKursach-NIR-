@@ -33,8 +33,8 @@ export async function GET() {
     // Получаем название группы, если есть group_id
     let group_name = null;
     try{
-    const group = db.prepare('SELECT name FROM Groups WHERE id = ?').get(user.group_id) as {name: string};
-    group_name = group !== null ? group.name : user.group_id;
+      const group = db.prepare('SELECT name FROM Groups WHERE id = ?').get(user.group_id) as {name: string};
+      group_name = group !== null ? group.name : user.group_id;
     } catch (err) {}
 
     // Возвращаем профиль с group_name вместо group_id

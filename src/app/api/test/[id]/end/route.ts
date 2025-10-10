@@ -53,11 +53,60 @@ export async function POST(
     }
 
     // --- Считаем количество правильных ответов ---
-    const correctCount = (db.prepare(
-      `SELECT COUNT(*) as cnt
-       FROM UserAnswers
-       WHERE attempt_id = ? AND is_correct = 1`
-    ).get(attempt.id) as {cnt: number}).cnt;
+    // Получаем все вопросы теста
+    const questions = db.prepare(
+      `SELECT id, question_type FROM Questions WHERE test_id = ?`
+    ).all(testId) as { id: number; question_type: string }[];
+
+    // Получаем все ответы пользователя по попытке
+    const userAnswers = db.prepare(
+      `SELECT question_id, answer_option_id FROM UserAnswers WHERE attempt_id = ?`
+    ).all(attempt.id) as { question_id: number; answer_option_id: number }[];
+
+    // Получаем все правильные варианты для вопросов теста
+    const correctOptions = db.prepare(
+      `SELECT question_id, id as answer_option_id FROM AnswerOptions WHERE question_id IN (
+          SELECT id FROM Questions WHERE test_id = ?
+       ) AND is_correct = 1`
+    ).all(testId) as { question_id: number; answer_option_id: number }[];
+
+    // Группируем ответы по вопросам
+    const userAnswersMap = new Map<number, number[]>();
+    userAnswers.forEach(a => {
+      if (!userAnswersMap.has(a.question_id)) userAnswersMap.set(a.question_id, []);
+      userAnswersMap.get(a.question_id)!.push(a.answer_option_id);
+    });
+    const correctOptionsMap = new Map<number, number[]>();
+    correctOptions.forEach(a => {
+      if (!correctOptionsMap.has(a.question_id)) correctOptionsMap.set(a.question_id, []);
+      correctOptionsMap.get(a.question_id)!.push(a.answer_option_id);
+    });
+
+    // Подсчёт правильных ответов
+    let correctCount = 0;
+    for (const q of questions) {
+      const userAns = userAnswersMap.get(q.id) || [];
+      const correctAns = correctOptionsMap.get(q.id) || [];
+      if (q.question_type === 'multiple') {
+        // Сравниваем как множества: все и только правильные
+        if (
+          userAns.length === correctAns.length &&
+          userAns.every((id) => correctAns.includes(id)) &&
+          correctAns.every((id) => userAns.includes(id))
+        ) {
+          correctCount++;
+        }
+      } else {
+        // single/text: только один правильный вариант
+        if (
+          userAns.length === 1 &&
+          correctAns.length === 1 &&
+          userAns[0] === correctAns[0]
+        ) {
+          correctCount++;
+        }
+      }
+    }
 
     // Завершаем попытку (ставим is_completed = 1, фиксируем время окончания и обновляем score)
     db.prepare(

@@ -79,13 +79,29 @@ export async function GET(
     // Собираем результат
     const questionResults = questions.map((q: any) => {
       const correct = correctOptions.find((c: any) => c.question_id === q.question_id);
+      const correctAnswers = correct ? correct.correct_answers.split(',') : [];
+      const userAnswers = q.user_answers ? q.user_answers.split(',') : [];
+
+      let isCorrect = false;
+
+      if (q.question_type === 'multiple') {
+        // Для вопросов с несколькими вариантами: правильный, если пользователь выбрал все правильные и только их
+        isCorrect =
+          correctAnswers.length > 0 &&
+          correctAnswers.every((answer) => userAnswers.includes(answer)) &&
+          userAnswers.every((answer: string) => correctAnswers.includes(answer));
+      } else {
+        // Для одиночного выбора: правильный, если выбран один правильный вариант
+        isCorrect = correctAnswers.length === 1 && userAnswers.length === 1 && correctAnswers[0] === userAnswers[0];
+      }
+
       return {
         question_id: q.question_id,
         question_text: q.question_text,
         question_type: q.question_type,
-        user_answers: q.user_answers ? q.user_answers.split(',') : [],
-        is_correct: q.is_corrects ? q.is_corrects.split(',').every((v: string) => v === '1') : false,
-        correct_answers: correct ? correct.correct_answers.split(',') : [],
+        user_answers: userAnswers,
+        is_correct: isCorrect,
+        correct_answers: correctAnswers,
       };
     });
 
