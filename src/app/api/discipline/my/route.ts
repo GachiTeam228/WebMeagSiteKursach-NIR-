@@ -21,25 +21,34 @@ export async function GET() {
     }
 
     // Получаем пользователя и проверяем, что он преподаватель
-    const user = db.prepare(
-      'SELECT id, role_id FROM Users WHERE username = ? AND is_active = 1'
-    ).get(payload.username) as { id: number, role_id: number };
+    const user = db
+      .prepare('SELECT id, role_id, group_id FROM Users WHERE username = ? AND is_active = 1')
+      .get(payload.username) as { id: number; role_id: number; group_id: number };
 
     if (!user) {
       return NextResponse.json({ error: 'User not found or inactive' }, { status: 403 });
     }
-    // Предполагаем, что role_id === 2 — преподаватель
-    if (user.role_id !== 2) {
-      return NextResponse.json({ error: 'Only teachers can view their subjects' }, { status: 403 });
-    }
 
     // Получаем все дисциплины с количеством тестов
-    const subjects = db.prepare(
-      `SELECT s.id, s.name, s.created_at, 
+    const subjects =
+      user.role_id == 2
+        ? db
+            .prepare(
+              `SELECT s.id, s.name, s.created_at, 
               (SELECT COUNT(*) FROM Tests t WHERE t.subject_id = s.id) as tests
        FROM Subjects s
        WHERE s.teacher_id = ?`
-    ).all(user.id);
+            )
+            .all(user.id)
+        : db
+            .prepare(
+              `SELECT DISTINCT s.id, s.name, s.created_at, 
+            (SELECT COUNT(*) FROM Tests t WHERE t.subject_id = s.id) as tests
+     FROM Subjects s
+     INNER JOIN Group_Subjects gs ON s.id = gs.subject_id
+     WHERE gs.group_id = ?`
+            )
+            .all(user.group_id);
 
     return NextResponse.json({ subjects });
   } catch (error) {

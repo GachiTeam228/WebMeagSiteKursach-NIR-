@@ -22,6 +22,7 @@ import {
   TextField,
   Snackbar,
   Alert,
+  CircularProgress,
 } from '@mui/material';
 import { Quiz, School, TimerOutlined, AccessTime, Close } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
@@ -33,6 +34,12 @@ interface Me {
   first_name: string;
   last_name: string;
   role_id: number;
+}
+
+interface Discipline {
+  id: number;
+  name: string;
+  tests: number;
 }
 
 export default function StudentDashboard() {
@@ -49,6 +56,7 @@ export default function StudentDashboard() {
   const [me, setMe] = useState<Me | null>(null);
   const [meLoading, setMeLoading] = useState<boolean>(false);
   const [logout, setLogout] = useState<boolean>(false);
+  const [isLoadingDisciplines, setIsLoadingDisciplines] = useState(false);
   const [passwords, setPasswords] = useState<{ currentPass: string; newPass: string; confirmNewPass: string }>({
     currentPass: '',
     newPass: '',
@@ -87,20 +95,7 @@ export default function StudentDashboard() {
     },
   ];
 
-  const disciplines = [
-    {
-      id: 1,
-      name: 'Алгоритмы и структуры данных',
-      tests: 5,
-      lastActivity: '2025-05-20',
-    },
-    {
-      id: 2,
-      name: 'Базы данных',
-      tests: 3,
-      lastActivity: '2025-05-15',
-    },
-  ];
+  const [disciplines, setDisciplines] = useState<Discipline[]>([]);
 
   const calculateTimeLeft = (dueDate: string) => {
     const now = new Date();
@@ -168,40 +163,33 @@ export default function StudentDashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  // useEffect(() => {
-  //   if (!activateChangePass) return;
+  // Загрузка дисциплин с бэкенда
+  useEffect(() => {
+    if (tabValue !== 1) return;
 
-  //   const { currentPass, newPass, confirmNewPass } = passwords;
+    const fetchDisciplines = async () => {
+      setIsLoadingDisciplines(true);
+      try {
+        const response = await fetch('/api/discipline/my');
+        if (!response.ok) {
+          throw new Error('Failed to fetch disciplines');
+        }
+        const data = await response.json();
+        setDisciplines(data.subjects); // исправлено здесь
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (e) {
+        setSnackbar({
+          open: true,
+          message: 'Ошибка при загрузке дисциплин',
+          severity: 'error',
+        });
+      } finally {
+        setIsLoadingDisciplines(false);
+      }
+    };
 
-  //   const fetchPassword = async () => {
-  //       const { currentPass, newPass, confirmNewPass } = passwords;
-
-  //     try {
-  //       if (newPass !== confirmNewPass) {
-  //         throw new Error('Пароли не совпадают');
-  //       }
-
-  //       const response = await fetch('/api/change-password', {
-  //         method: 'POST',
-  //         body: JSON.stringify({ currentPass, newPass, confirmNewPass }),
-  //       });
-
-  //       if (!response.ok) {
-  //         throw new Error('Ошибка смены пароля');
-  //       }
-
-  //       setSnackbar({
-  //         open: true,
-  //         message: 'Пароль успешно изменён',
-  //         severity: 'success',
-  //       });
-  //     } catch (e) {
-  //       return e;
-  //     }
-  //   };
-
-  //   fetchPassword();
-  // }, [activateChangePass]);
+    fetchDisciplines();
+  }, [tabValue]);
 
   useEffect(() => {
     if (!logout) return;
@@ -385,34 +373,47 @@ export default function StudentDashboard() {
             container
             spacing={3}
           >
-            {disciplines.map((discipline) => (
-              <Grid
-                sx={{ xs: 12, sm: 6, md: 4 }}
-                key={discipline.id}
+            {isLoadingDisciplines ? (
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  width: '100%',
+                  p: 4,
+                }}
               >
-                <Card
-                  variant="outlined"
-                  sx={{ cursor: 'pointer', '&:hover': { boxShadow: 2 } }}
-                  onClick={() => router.push(`/discipline/${discipline.id}`)}
+                <CircularProgress />
+              </Box>
+            ) : (
+              disciplines.map((discipline) => (
+                <Grid
+                  sx={{ width: { xs: '100%', sm: '50%', md: '33.33%' } }}
+                  key={discipline.id}
                 >
-                  <CardContent>
-                    <Typography
-                      variant="h6"
-                      sx={{ fontWeight: 600, mb: 1 }}
-                    >
-                      {discipline.name}
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-                      <Chip
-                        label={`${discipline.tests} тестов`}
-                        variant="outlined"
-                        size="small"
-                      />
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
+                  <Card
+                    variant="outlined"
+                    sx={{ cursor: 'pointer', '&:hover': { boxShadow: 2 } }}
+                    onClick={() => router.push(`/discipline/${discipline.id}`)}
+                  >
+                    <CardContent>
+                      <Typography
+                        variant="h6"
+                        sx={{ fontWeight: 600, mb: 1 }}
+                      >
+                        {discipline.name}
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                        <Chip
+                          label={`${discipline.tests} тестов`}
+                          variant="outlined"
+                          size="small"
+                        />
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))
+            )}
           </Grid>
         )}
       </Box>
