@@ -25,8 +25,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Menu,
-  MenuItem,
+  // Menu,
+  // MenuItem,
   CircularProgress,
   Snackbar,
   Alert,
@@ -40,13 +40,14 @@ import {
   Person,
   ExpandMore,
   Timer as TimerOutlined,
-  Logout,
-  Lock,
+  // Logout,
+  // Lock,
   Close,
 } from '@mui/icons-material';
-import { useState, useEffect, act } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { format, differenceInSeconds } from 'date-fns';
+import UserHeader from '@/app/shared/UserHeader/UserHeader';
 
 interface Student {
   id: number;
@@ -83,7 +84,7 @@ export default function TeacherDashboard() {
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [disciplineName, setDisciplineName] = useState('');
   const [isCreatingDiscipline, setIsCreatingDiscipline] = useState(false);
-  const [userMenuAnchorEl, setUserMenuAnchorEl] = useState<null | HTMLElement>(null);
+  // const [userMenuAnchorEl, setUserMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [newGroupList, setNewGroupList] = useState<string>('');
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
@@ -116,6 +117,34 @@ export default function TeacherDashboard() {
   // 1. Сохраняем текущее время в стейте
   const [now, setNow] = useState<Date | null>(null);
 
+  const handlePasswordChange = async () => {
+    const { currentPass, newPass, confirmNewPass } = passwords;
+
+    try {
+      if (newPass !== confirmNewPass) {
+        throw new Error('Пароли не совпадают');
+      }
+
+      const response = await fetch('/api/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ currentPass, newPass, confirmNewPass }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Ошибка смены пароля');
+      }
+
+      setChangePasswordOpen(false);
+      setSnackbar({
+        open: true,
+        message: 'Пароль успешно изменён',
+        severity: 'success',
+      });
+    } catch (e) {
+      return e;
+    }
+  };
+
   // 2. Обновляем его каждую секунду только на клиенте
   useEffect(() => {
     setNow(new Date());
@@ -123,38 +152,38 @@ export default function TeacherDashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    if (!activateChangePass) return;
+  // useEffect(() => {
+  //   if (!activateChangePass) return;
 
-    const { currentPass, newPass, confirmNewPass } = passwords;
+  //   const { currentPass, newPass, confirmNewPass } = passwords;
 
-    const fetchPassword = async () => {
-      try {
-        if (newPass !== confirmNewPass) {
-          throw new Error('Пароли не совпадают');
-        }
+  //   const fetchPassword = async () => {
+  //     try {
+  //       if (newPass !== confirmNewPass) {
+  //         throw new Error('Пароли не совпадают');
+  //       }
 
-        const response = await fetch('/api/change-password', {
-          method: 'POST',
-          body: JSON.stringify({ currentPass, newPass, confirmNewPass }),
-        });
+  //       const response = await fetch('/api/change-password', {
+  //         method: 'POST',
+  //         body: JSON.stringify({ currentPass, newPass, confirmNewPass }),
+  //       });
 
-        if (!response.ok) {
-          throw new Error('Ошибка смены пароля');
-        }
+  //       if (!response.ok) {
+  //         throw new Error('Ошибка смены пароля');
+  //       }
 
-        setSnackbar({
-          open: true,
-          message: 'Пароль успешно изменён',
-          severity: 'success',
-        });
-      } catch (e) {
-        return e;
-      }
-    };
+  //       setSnackbar({
+  //         open: true,
+  //         message: 'Пароль успешно изменён',
+  //         severity: 'success',
+  //       });
+  //     } catch (e) {
+  //       return e;
+  //     }
+  //   };
 
-    fetchPassword();
-  }, [activateChangePass]);
+  //   fetchPassword();
+  // }, [activateChangePass]);
 
   useEffect(() => {
     if (!logout) return;
@@ -167,6 +196,7 @@ export default function TeacherDashboard() {
         if (!response.ok) {
           throw new Error('Failed to logout');
         }
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e) {
         setSnackbar({
           open: true,
@@ -193,6 +223,7 @@ export default function TeacherDashboard() {
         }
         const data: Me = await response.json();
         setMe(data);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e) {
         setSnackbar({
           open: true,
@@ -220,6 +251,7 @@ export default function TeacherDashboard() {
         }
         const data = await response.json();
         setDisciplines(data.subjects); // исправлено здесь
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e) {
         setSnackbar({
           open: true,
@@ -309,13 +341,13 @@ export default function TeacherDashboard() {
     return `${hours > 0 ? pad(hours) + ':' : ''}${pad(mins)}:${pad(secs)}`;
   };
 
-  const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setUserMenuAnchorEl(event.currentTarget);
-  };
+  // const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+  //   setUserMenuAnchorEl(event.currentTarget);
+  // };
 
-  const handleUserMenuClose = () => {
-    setUserMenuAnchorEl(null);
-  };
+  // const handleUserMenuClose = () => {
+  //   setUserMenuAnchorEl(null);
+  // };
 
   const ruToEnMap: Record<string, string> = {
     А: 'A',
@@ -483,103 +515,12 @@ export default function TeacherDashboard() {
       sx={{ py: 4, display: 'flex' }}
     >
       {/* Профиль пользователя */}
-      {me && (
-        <Box sx={{ position: 'fixed', right: 32, top: 32, zIndex: 1000 }}>
-          <Card
-            variant="outlined"
-            onClick={handleUserMenuOpen}
-            sx={{ width: 'auto' }}
-          >
-            <CardContent sx={{ p: 2 }}>
-              {meLoading ? (
-                <Box
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    width: '100%',
-                    p: 4,
-                  }}
-                >
-                  <CircularProgress />
-                </Box>
-              ) : (
-                <>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <Avatar sx={{ bgcolor: 'primary.main', mr: 2 }}>
-                      <Person />
-                    </Avatar>
-                    <Typography variant="subtitle1">{me.first_name + ' ' + me.last_name}</Typography>
-                  </Box>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                  >
-                    {me.role_id === 2 ? 'Преподаватель' : 'Студент'}
-                  </Typography>
-                </>
-              )}
-            </CardContent>
-          </Card>
-          <Menu
-            anchorEl={userMenuAnchorEl}
-            open={Boolean(userMenuAnchorEl)}
-            onClose={handleUserMenuClose}
-            PaperProps={{
-              elevation: 0,
-              sx: {
-                overflow: 'visible',
-                filter: 'drop-shadow(0px 2px 8px rgba(0,0,0,0.32))',
-                mt: 1.5,
-                '& .MuiAvatar-root': {
-                  width: 32,
-                  height: 32,
-                  ml: -0.5,
-                  mr: 1,
-                },
-                '&:before': {
-                  content: '""',
-                  display: 'block',
-                  position: 'absolute',
-                  top: 0,
-                  right: 14,
-                  width: 10,
-                  height: 10,
-                  bgcolor: 'background.paper',
-                  transform: 'translateY(-50%) rotate(45deg)',
-                  zIndex: 0,
-                },
-              },
-            }}
-            transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-            anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-          >
-            <MenuItem
-              onClick={() => {
-                setChangePasswordOpen(true);
-                handleUserMenuClose();
-              }}
-            >
-              <Lock
-                fontSize="small"
-                sx={{ mr: 1 }}
-              />
-              Изменить пароль
-            </MenuItem>
-            <MenuItem
-              onClick={() => {
-                setLogout(true);
-                handleUserMenuClose();
-              }}
-            >
-              <Logout
-                fontSize="small"
-                sx={{ mr: 1 }}
-              />
-              Выйти
-            </MenuItem>
-          </Menu>
-        </Box>
-      )}
+      <UserHeader
+        me={me}
+        meLoading={meLoading}
+        onLogout={() => setLogout(true)}
+        onChangePassword={() => setChangePasswordOpen(true)}
+      />
 
       {/* Основной контент */}
       <Box sx={{ flexGrow: 1 }}>
@@ -1069,7 +1010,9 @@ export default function TeacherDashboard() {
             variant="contained"
             onClick={() => {
               setActivateChangePass(true);
-              setChangePasswordOpen(false);
+              // Логика изменения пароля
+              handlePasswordChange();
+              // setChangePasswordOpen(false);
             }}
           >
             Сохранить

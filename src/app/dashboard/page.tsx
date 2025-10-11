@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   Container,
@@ -8,7 +8,6 @@ import {
   Card,
   CardContent,
   Grid,
-  Avatar,
   Chip,
   List,
   ListItem,
@@ -20,23 +19,21 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Menu,
-  MenuItem,
   TextField,
-} from "@mui/material";
-import {
-  Quiz,
-  School,
-  Person,
-  TimerOutlined,
-  AccessTime,
-  Close,
-  Lock,
-  Logout,
-} from "@mui/icons-material";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { format, differenceInSeconds } from "date-fns";
+  Snackbar,
+  Alert,
+} from '@mui/material';
+import { Quiz, School, TimerOutlined, AccessTime, Close } from '@mui/icons-material';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { format, differenceInSeconds } from 'date-fns';
+import UserHeader from '../shared/UserHeader/UserHeader';
+
+interface Me {
+  first_name: string;
+  last_name: string;
+  role_id: number;
+}
 
 export default function StudentDashboard() {
   const router = useRouter();
@@ -44,27 +41,46 @@ export default function StudentDashboard() {
   const [testStartDialogOpen, setTestStartDialogOpen] = useState(false);
   const [selectedTestId, setSelectedTestId] = useState<number | null>(null);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
-  const [userMenuAnchorEl, setUserMenuAnchorEl] = useState<null | HTMLElement>(
-    null
-  );
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error',
+  });
+  const [me, setMe] = useState<Me | null>(null);
+  const [meLoading, setMeLoading] = useState<boolean>(false);
+  const [logout, setLogout] = useState<boolean>(false);
+  const [passwords, setPasswords] = useState<{ currentPass: string; newPass: string; confirmNewPass: string }>({
+    currentPass: '',
+    newPass: '',
+    confirmNewPass: '',
+  });
+  const [activateChangePass, setActivateChangePass] = useState<boolean>(false);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setPasswords((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
 
   const activeTests = [
     {
       id: 1,
-      name: "Сортировки и поиск",
-      discipline: "Алгоритмы",
-      due: "2025-05-25T22:39:00",
-      group: "CS-201",
+      name: 'Сортировки и поиск',
+      discipline: 'Алгоритмы',
+      due: '2025-05-25T22:39:00',
+      group: 'CS-201',
       questions: 15,
       maxScore: 100,
       duration: 90,
     },
     {
       id: 2,
-      name: "Нормальные формы",
-      discipline: "Базы данных",
-      due: "2025-05-28T23:59:00",
-      group: "CS-202",
+      name: 'Нормальные формы',
+      discipline: 'Базы данных',
+      due: '2025-05-28T23:59:00',
+      group: 'CS-202',
       questions: 10,
       maxScore: 80,
       duration: 60,
@@ -74,15 +90,15 @@ export default function StudentDashboard() {
   const disciplines = [
     {
       id: 1,
-      name: "Алгоритмы и структуры данных",
+      name: 'Алгоритмы и структуры данных',
       tests: 5,
-      lastActivity: "2025-05-20",
+      lastActivity: '2025-05-20',
     },
     {
       id: 2,
-      name: "Базы данных",
+      name: 'Базы данных',
       tests: 3,
-      lastActivity: "2025-05-15",
+      lastActivity: '2025-05-15',
     },
   ];
 
@@ -100,12 +116,40 @@ export default function StudentDashboard() {
 
     const pad = (num: number) => (num < 10 ? `0${num}` : num);
 
-    return `${hours > 0 ? pad(hours) + ":" : ""}${pad(mins)}:${pad(secs)}`;
+    return `${hours > 0 ? pad(hours) + ':' : ''}${pad(mins)}:${pad(secs)}`;
   };
 
   const handleTestClick = (testId: number) => {
     setSelectedTestId(testId);
     setTestStartDialogOpen(true);
+  };
+
+  const handlePasswordChange = async () => {
+    const { currentPass, newPass, confirmNewPass } = passwords;
+
+    try {
+      if (newPass !== confirmNewPass) {
+        throw new Error('Пароли не совпадают');
+      }
+
+      const response = await fetch('/api/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ currentPass, newPass, confirmNewPass }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Ошибка смены пароля');
+      }
+
+      setChangePasswordOpen(false);
+      setSnackbar({
+        open: true,
+        message: 'Пароль успешно изменён',
+        severity: 'success',
+      });
+    } catch (e) {
+      return e;
+    }
   };
 
   const startTest = () => {
@@ -114,105 +158,125 @@ export default function StudentDashboard() {
     }
   };
 
-  const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setUserMenuAnchorEl(event.currentTarget);
-  };
+  // 1. Сохраняем текущее время в стейте
+  const [now, setNow] = useState<Date | null>(null);
 
-  const handleUserMenuClose = () => {
-    setUserMenuAnchorEl(null);
-  };
+  // 2. Обновляем его каждую секунду только на клиенте
+  useEffect(() => {
+    setNow(new Date());
+    const interval = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // useEffect(() => {
+  //   if (!activateChangePass) return;
+
+  //   const { currentPass, newPass, confirmNewPass } = passwords;
+
+  //   const fetchPassword = async () => {
+  //       const { currentPass, newPass, confirmNewPass } = passwords;
+
+  //     try {
+  //       if (newPass !== confirmNewPass) {
+  //         throw new Error('Пароли не совпадают');
+  //       }
+
+  //       const response = await fetch('/api/change-password', {
+  //         method: 'POST',
+  //         body: JSON.stringify({ currentPass, newPass, confirmNewPass }),
+  //       });
+
+  //       if (!response.ok) {
+  //         throw new Error('Ошибка смены пароля');
+  //       }
+
+  //       setSnackbar({
+  //         open: true,
+  //         message: 'Пароль успешно изменён',
+  //         severity: 'success',
+  //       });
+  //     } catch (e) {
+  //       return e;
+  //     }
+  //   };
+
+  //   fetchPassword();
+  // }, [activateChangePass]);
+
+  useEffect(() => {
+    if (!logout) return;
+
+    const fetchLogout = async () => {
+      try {
+        const response = await fetch('/api/logout', {
+          method: 'POST',
+        });
+        if (!response.ok) {
+          throw new Error('Failed to logout');
+        }
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (e) {
+        setSnackbar({
+          open: true,
+          message: 'Ошибка при попытке выхода из аккаунта',
+          severity: 'error',
+        });
+      }
+
+      router.push('/auth/login');
+    };
+
+    fetchLogout();
+  }, [logout]);
+
+  useEffect(() => {
+    if (me !== null) return;
+
+    const fetchMe = async () => {
+      setMeLoading(true);
+      try {
+        const response = await fetch('/api/profile');
+        if (!response.ok) {
+          throw new Error('Failed to fetch disciplines');
+        }
+        const data: Me = await response.json();
+        setMe(data);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (e) {
+        setSnackbar({
+          open: true,
+          message: 'Ошибка при загрузке пользователя',
+          severity: 'error',
+        });
+      } finally {
+        setMeLoading(false);
+      }
+    };
+
+    fetchMe();
+  }, [me]);
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
+    <Container
+      maxWidth="xl"
+      sx={{ py: 4 }}
+    >
       {/* Профиль пользователя */}
-      <Box
-        sx={{
-          position: "absolute",
-          right: 0,
-          top: 32,
-          pr: 4,
-          width: "calc(100% - 32px)",
-          maxWidth: 1200,
-          display: "flex",
-          justifyContent: "flex-end",
-          zIndex: 1000,
-        }}
-      >
-        <Card
-          variant="outlined"
-          sx={{ width: 200, cursor: "pointer" }}
-          onClick={handleUserMenuOpen}
-        >
-          <CardContent sx={{ p: 2 }}>
-            <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
-              <Avatar sx={{ bgcolor: "primary.main", mr: 2 }}>
-                <Person />
-              </Avatar>
-              <Typography variant="subtitle1">Иванов И.И.</Typography>
-            </Box>
-            <Typography variant="body2" color="text.secondary">
-              Студент
-            </Typography>
-          </CardContent>
-        </Card>
-
-        <Menu
-          anchorEl={userMenuAnchorEl}
-          open={Boolean(userMenuAnchorEl)}
-          onClose={handleUserMenuClose}
-          PaperProps={{
-            elevation: 0,
-            sx: {
-              overflow: "visible",
-              filter: "drop-shadow(0px 2px 8px rgba(0,0,0,0.32))",
-              mt: 1.5,
-              "& .MuiAvatar-root": {
-                width: 32,
-                height: 32,
-                ml: -0.5,
-                mr: 1,
-              },
-              "&:before": {
-                content: '""',
-                display: "block",
-                position: "absolute",
-                top: 0,
-                right: 14,
-                width: 10,
-                height: 10,
-                bgcolor: "background.paper",
-                transform: "translateY(-50%) rotate(45deg)",
-                zIndex: 0,
-              },
-            },
-          }}
-          transformOrigin={{ horizontal: "right", vertical: "top" }}
-          anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
-        >
-          <MenuItem
-            onClick={() => {
-              setChangePasswordOpen(true);
-              handleUserMenuClose();
-            }}
-          >
-            <Lock fontSize="small" sx={{ mr: 1 }} />
-            Изменить пароль
-          </MenuItem>
-          <MenuItem
-            onClick={() => {
-              console.log("Logout");
-              handleUserMenuClose();
-            }}
-          >
-            <Logout fontSize="small" sx={{ mr: 1 }} />
-            Выйти
-          </MenuItem>
-        </Menu>
-      </Box>
+      <UserHeader
+        me={me}
+        meLoading={meLoading}
+        onLogout={() => setLogout(true)}
+        onChangePassword={() => setChangePasswordOpen(true)}
+        // onChangePassword={handlePasswordChange}
+      />
 
       {/* Основной контент */}
       <Box>
-        <Typography variant="h4" component="h1" sx={{ fontWeight: 700, mb: 4 }}>
+        <Typography
+          variant="h4"
+          component="h1"
+          sx={{ fontWeight: 700, mb: 4 }}
+        >
           Панель студента
         </Typography>
 
@@ -221,22 +285,31 @@ export default function StudentDashboard() {
           onChange={(_, newValue) => setTabValue(newValue)}
           sx={{ mb: 4 }}
         >
-          <Tab label="Активные тесты" icon={<Quiz />} />
-          <Tab label="Дисциплины" icon={<School />} />
+          <Tab
+            label="Активные тесты"
+            icon={<Quiz />}
+          />
+          <Tab
+            label="Дисциплины"
+            icon={<School />}
+          />
         </Tabs>
 
         {tabValue === 0 && (
           <Card variant="outlined">
             <CardContent>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
+              <Typography
+                variant="h6"
+                sx={{ fontWeight: 600, mb: 3 }}
+              >
                 Текущие активные тесты
               </Typography>
-              <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 {activeTests.map((test) => (
                   <Card
                     variant="outlined"
                     key={test.id}
-                    sx={{ width: "100%", cursor: "pointer" }}
+                    sx={{ width: '100%', cursor: 'pointer' }}
                     onClick={() => handleTestClick(test.id)}
                   >
                     <CardContent>
@@ -255,10 +328,10 @@ export default function StudentDashboard() {
                       </Typography>
                       <Box
                         sx={{
-                          display: "flex",
+                          display: 'flex',
                           gap: 1,
                           mb: 2,
-                          flexWrap: "wrap",
+                          flexWrap: 'wrap',
                         }}
                       >
                         <Chip
@@ -282,30 +355,20 @@ export default function StudentDashboard() {
                       </Box>
                       <Box
                         sx={{
-                          display: "flex",
-                          alignItems: "center",
+                          display: 'flex',
+                          alignItems: 'center',
                           gap: 2,
                         }}
                       >
                         <Chip
-                          label={`Срок: ${format(
-                            new Date(test.due),
-                            "dd.MM.yyyy HH:mm"
-                          )}`}
+                          label={`Срок: ${format(new Date(test.due), 'dd.MM.yyyy HH:mm')}`}
                           variant="outlined"
                           color="primary"
                         />
                         <Chip
                           icon={<TimerOutlined />}
                           label={`Осталось: ${calculateTimeLeft(test.due)}`}
-                          color={
-                            differenceInSeconds(
-                              new Date(test.due),
-                              new Date()
-                            ) < 3600
-                              ? "error"
-                              : "primary"
-                          }
+                          color={differenceInSeconds(new Date(test.due), new Date()) < 3600 ? 'error' : 'primary'}
                           variant="outlined"
                         />
                       </Box>
@@ -318,19 +381,28 @@ export default function StudentDashboard() {
         )}
 
         {tabValue === 1 && (
-          <Grid container spacing={3}>
+          <Grid
+            container
+            spacing={3}
+          >
             {disciplines.map((discipline) => (
-              <Grid sx={{xs: 12, sm: 6, md: 4}} key={discipline.id}>
+              <Grid
+                sx={{ xs: 12, sm: 6, md: 4 }}
+                key={discipline.id}
+              >
                 <Card
                   variant="outlined"
-                  sx={{ cursor: "pointer", "&:hover": { boxShadow: 2 } }}
+                  sx={{ cursor: 'pointer', '&:hover': { boxShadow: 2 } }}
                   onClick={() => router.push(`/discipline/${discipline.id}`)}
                 >
                   <CardContent>
-                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                    <Typography
+                      variant="h6"
+                      sx={{ fontWeight: 600, mb: 1 }}
+                    >
                       {discipline.name}
                     </Typography>
-                    <Box sx={{ display: "flex", gap: 1, mb: 1 }}>
+                    <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
                       <Chip
                         label={`${discipline.tests} тестов`}
                         variant="outlined"
@@ -354,15 +426,13 @@ export default function StudentDashboard() {
           Начало тестирования
           <IconButton
             onClick={() => setTestStartDialogOpen(false)}
-            sx={{ position: "absolute", right: 8, top: 8 }}
+            sx={{ position: 'absolute', right: 8, top: 8 }}
           >
             <Close />
           </IconButton>
         </DialogTitle>
         <DialogContent>
-          <Typography sx={{ mb: 2 }}>
-            Вы собираетесь начать выполнение теста. Обратите внимание:
-          </Typography>
+          <Typography sx={{ mb: 2 }}>Вы собираетесь начать выполнение теста. Обратите внимание:</Typography>
           <List dense>
             <ListItem>
               <ListItemText primary="• Тест имеет ограничение по времени" />
@@ -371,19 +441,20 @@ export default function StudentDashboard() {
               <ListItemText primary="• После начала теста таймер не останавливается" />
             </ListItem>
           </List>
-          <Typography sx={{ mt: 2, fontWeight: 600 }}>
-            Вы уверены, что готовы начать?
-          </Typography>
+          <Typography sx={{ mt: 2, fontWeight: 600 }}>Вы уверены, что готовы начать?</Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setTestStartDialogOpen(false)}>Отмена</Button>
-          <Button variant="contained" onClick={startTest}>
+          <Button
+            variant="contained"
+            onClick={startTest}
+          >
             Начать тест
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Диалог изменения пароля */}
+      {/* Попап смены пароля */}
       <Dialog
         open={changePasswordOpen}
         onClose={() => setChangePasswordOpen(false)}
@@ -392,7 +463,7 @@ export default function StudentDashboard() {
           Изменить пароль
           <IconButton
             onClick={() => setChangePasswordOpen(false)}
-            sx={{ position: "absolute", right: 8, top: 8 }}
+            sx={{ position: 'absolute', right: 8, top: 8 }}
           >
             <Close />
           </IconButton>
@@ -406,6 +477,9 @@ export default function StudentDashboard() {
             fullWidth
             variant="outlined"
             sx={{ mb: 2 }}
+            name="currentPass"
+            value={passwords.currentPass}
+            onChange={handleChange}
           />
           <TextField
             margin="dense"
@@ -414,6 +488,9 @@ export default function StudentDashboard() {
             fullWidth
             variant="outlined"
             sx={{ mb: 2 }}
+            name="newPass"
+            value={passwords.newPass}
+            onChange={handleChange}
           />
           <TextField
             margin="dense"
@@ -421,6 +498,9 @@ export default function StudentDashboard() {
             type="password"
             fullWidth
             variant="outlined"
+            name="confirmNewPass"
+            value={passwords.confirmNewPass}
+            onChange={handleChange}
           />
         </DialogContent>
         <DialogActions>
@@ -428,14 +508,32 @@ export default function StudentDashboard() {
           <Button
             variant="contained"
             onClick={() => {
+              setActivateChangePass(true);
               // Логика изменения пароля
-              setChangePasswordOpen(false);
+              handlePasswordChange();
+              // setChangePasswordOpen(false);
             }}
           >
             Сохранить
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Снэкбар для уведомлений */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 }
