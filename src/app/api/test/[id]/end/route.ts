@@ -40,10 +40,26 @@ export async function POST(request: Request, { params }: { params: { id: string 
       return NextResponse.json({ error: 'Invalid test id' }, { status: 400 });
     }
 
+    // Проверяем, что тест назначен этому студенту
+    const testAssignment = db
+      .prepare(
+        `SELECT id, is_completed FROM TestAssignments 
+         WHERE test_id = ? AND user_id = ?`
+      )
+      .get(testId, user.id) as { id: number; is_completed: number } | undefined;
+
+    if (!testAssignment) {
+      return NextResponse.json({ error: 'Test is not assigned to you' }, { status: 403 });
+    }
+
+    if (testAssignment.is_completed === 1) {
+      return NextResponse.json({ error: 'Test assignment already completed' }, { status: 403 });
+    }
+
     // Проверяем, есть ли активная попытка
     const attempt = db
       .prepare(`SELECT id FROM Attempts WHERE user_id = ? AND test_id = ? AND is_completed = 0`)
-      .get(user.id, testId) as { id: number };
+      .get(user.id, testId) as { id: number } | undefined;
 
     if (!attempt) {
       return NextResponse.json({ error: 'No active attempt found' }, { status: 404 });
@@ -102,12 +118,34 @@ export async function POST(request: Request, { params }: { params: { id: string 
       }
     }
 
-    // 5. Завершаем попытку, фиксируя время окончания и посчитанный балл
+    // 5. Получаем passing_score (проходной балл) из Tests
+    const test = db.prepare(`SELECT passing_score FROM Tests WHERE id = ?`).get(testId) as
+      | { passing_score: number | null }
+      | undefined;
+
+    const passingScore = test?.passing_score || 0;
+
+    // 6. Определяем, прошёл ли студент тест
+    const isPassed = totalScore >= passingScore;
+
+    // 7. Завершаем попытку, фиксируя время окончания и посчитанный балл
     db.prepare(
       `UPDATE Attempts SET is_completed = 1, end_time = datetime('now', 'localtime'), score = ? WHERE id = ?`
     ).run(totalScore, attempt.id);
 
-    return NextResponse.json({ message: 'Test attempt completed', attempt_id: attempt.id, score: totalScore });
+    // 8. Если тест пройден успешно, обновляем TestAssignment
+    if (isPassed) {
+      db.prepare(`UPDATE TestAssignments SET is_completed = 1 WHERE id = ?`).run(testAssignment.id);
+    }
+
+    return NextResponse.json({
+      message: 'Test attempt completed',
+      attempt_id: attempt.id,
+      score: totalScore,
+      passing_score: passingScore,
+      passed: isPassed,
+      assignment_completed: isPassed,
+    });
   } catch (error) {
     console.error('Error ending test attempt:', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });

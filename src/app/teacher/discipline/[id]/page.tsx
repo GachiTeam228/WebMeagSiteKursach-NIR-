@@ -45,7 +45,7 @@ import {
   Quiz,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect, use, Usable } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { differenceInHours, differenceInMinutes } from 'date-fns';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -88,7 +88,7 @@ type DisciplineType = {
   chapters: Chapter[];
 };
 
-export default function DisciplinePage({ params }: { params: { id: string } }) {
+export default function DisciplinePage({ params }: { params: Usable<{ id: string }> }) {
   const router = useRouter();
   const { id } = use<{ id: string }>(params);
   const [tabValue, setTabValue] = useState(0);
@@ -98,7 +98,7 @@ export default function DisciplinePage({ params }: { params: { id: string } }) {
   const [assignTestsOpen, setAssignTestsOpen] = useState(false);
   const [deadline, setDeadline] = useState<Date | null>(null);
   const [selectedTests, setSelectedTests] = useState<Test[]>([]);
-  const [isTeacher, setIsTeacher] = useState(true);
+  const isTeacher = true;
   const [addGroupDialogOpen, setAddGroupDialogOpen] = useState(false);
   const [allTeacherGroups, setAllTeacherGroups] = useState<Group[]>([]);
   const [groupsToAdd, setGroupsToAdd] = useState<number[]>([]);
@@ -118,7 +118,7 @@ export default function DisciplinePage({ params }: { params: { id: string } }) {
         if (!response.ok) throw new Error('Failed to fetch');
         const data: DisciplineType = await response.json();
         setDiscipline(data);
-      } catch (e) {
+      } catch {
         setDiscipline(null);
       } finally {
         setLoading(false);
@@ -252,9 +252,6 @@ export default function DisciplinePage({ params }: { params: { id: string } }) {
         .filter((g) => !g.selected) // Исключаем группы, выбранные целиком
         .flatMap((g) => g.students.filter((s) => s.selected).map((s) => s.id));
 
-      let successCount = 0;
-      let errorCount = 0;
-
       // Выдаем каждый тест
       for (const test of selectedTests) {
         try {
@@ -274,9 +271,6 @@ export default function DisciplinePage({ params }: { params: { id: string } }) {
             if (!response.ok) {
               const data = await response.json();
               console.error(`Failed to assign test ${test.name} to group ${group.name}:`, data.error);
-              errorCount++;
-            } else {
-              successCount++;
             }
           }
 
@@ -298,9 +292,6 @@ export default function DisciplinePage({ params }: { params: { id: string } }) {
               if (!response.ok) {
                 const data = await response.json();
                 console.error(`Failed to assign test ${test.name} to student ${selectedStudents[0]}:`, data.error);
-                errorCount++;
-              } else {
-                successCount++;
               }
             } else {
               // Несколько студентов - используем endpoint для множественной выдачи
@@ -319,15 +310,11 @@ export default function DisciplinePage({ params }: { params: { id: string } }) {
               if (!response.ok) {
                 const data = await response.json();
                 console.error(`Failed to assign test ${test.name} to multiple students:`, data.error);
-                errorCount++;
-              } else {
-                successCount++;
               }
             }
           }
         } catch (error) {
           console.error(`Error assigning test ${test.name}:`, error);
-          errorCount++;
         }
       }
       // Закрываем диалог и сбрасываем состояние
@@ -386,7 +373,7 @@ export default function DisciplinePage({ params }: { params: { id: string } }) {
       });
       if (!res.ok) throw new Error('Ошибка сохранения структуры');
       setEditMode(false);
-    } catch (e) {
+    } catch {
       alert('Ошибка при сохранении структуры');
     }
   };
@@ -568,12 +555,6 @@ export default function DisciplinePage({ params }: { params: { id: string } }) {
             label="Группы"
             disabled={editMode}
           />
-          {isTeacher && (
-            <Tab
-              label="Настройки"
-              disabled={editMode}
-            />
-          )}
         </Tabs>
 
         {tabValue === 0 && (
@@ -787,7 +768,9 @@ export default function DisciplinePage({ params }: { params: { id: string } }) {
                   ) : (
                     <Box sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
                       <Typography>В этой дисциплине пока нет глав.</Typography>
-                      <Typography variant="body2">Нажмите "Редактировать", чтобы добавить первую главу.</Typography>
+                      <Typography variant="body2">
+                        Нажмите &quot;Редактировать&quot;, чтобы добавить первую главу.
+                      </Typography>
                     </Box>
                   )}
                 </>
@@ -839,6 +822,16 @@ export default function DisciplinePage({ params }: { params: { id: string } }) {
                           primary={group.name}
                           secondary={`${group.students.length} студентов`}
                         />
+                        <Button
+                          variant="outlined"
+                          style={{ marginRight: '30px' }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/teacher/discipline/${discipline.id}/group/${group.id}/progress`);
+                          }}
+                        >
+                          Перейти к успеваемости группы
+                        </Button>
                         <ExpandMore
                           sx={{
                             transform: expandedGroups[group.id] ? 'rotate(180deg)' : 'none',
@@ -884,34 +877,6 @@ export default function DisciplinePage({ params }: { params: { id: string } }) {
               ) : (
                 <Typography color="text.secondary">К этой дисциплине пока не привязана ни одна группа.</Typography>
               )}
-            </CardContent>
-          </Card>
-        )}
-
-        {tabValue === 2 && isTeacher && (
-          <Card elevation={3}>
-            <CardContent>
-              <Typography
-                variant="h6"
-                sx={{ mb: 3, fontWeight: 600 }}
-              >
-                Настройки дисциплины
-              </Typography>
-              <TextField
-                label="Название дисциплины"
-                fullWidth
-                defaultValue={discipline.name}
-                sx={{ mb: 3 }}
-              />
-              <TextField
-                label="Описание"
-                multiline
-                rows={4}
-                fullWidth
-                defaultValue={discipline.description}
-                sx={{ mb: 3 }}
-              />
-              <Button variant="contained">Сохранить изменения</Button>
             </CardContent>
           </Card>
         )}

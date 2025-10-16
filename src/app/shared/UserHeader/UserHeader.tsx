@@ -1,7 +1,7 @@
 'use client';
 
 import { Box, Typography, Card, CardContent, Avatar, Menu, MenuItem, CircularProgress } from '@mui/material';
-import { Person, Lock, Logout } from '@mui/icons-material';
+import { Person, Lock, Logout, PersonAdd } from '@mui/icons-material';
 import { useState } from 'react';
 
 interface Me {
@@ -15,9 +15,10 @@ interface UserHeaderProps {
   meLoading: boolean;
   onLogout: () => void;
   onChangePassword: () => void;
+  onTeacherRegister?: () => void;
 }
 
-export default function UserHeader({ me, meLoading, onLogout, onChangePassword }: UserHeaderProps) {
+export default function UserHeader({ me, meLoading, onLogout, onChangePassword, onTeacherRegister }: UserHeaderProps) {
   const [userMenuAnchorEl, setUserMenuAnchorEl] = useState<null | HTMLElement>(null);
 
   const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -117,6 +118,20 @@ export default function UserHeader({ me, meLoading, onLogout, onChangePassword }
           />
           Изменить пароль
         </MenuItem>
+        {me?.role_id === 2 && (
+          <MenuItem
+            onClick={() => {
+              if (onTeacherRegister !== undefined) onTeacherRegister();
+              handleUserMenuClose();
+            }}
+          >
+            <PersonAdd
+              fontSize="small"
+              sx={{ mr: 1 }}
+            />
+            Зарегистрировать преподавателя
+          </MenuItem>
+        )}
         <MenuItem
           onClick={() => {
             onLogout();
