@@ -240,18 +240,119 @@ export default function DisciplinePage({ params }: { params: { id: string } }) {
     return `${hours} ч ${minutes} мин`;
   };
 
-  const handleAssignTests = () => {
-    if (!discipline) return;
-    console.log('Выдаем тесты:', {
-      tests: selectedTests,
-      deadline,
-      selectedGroups: discipline.groups.filter((g) => g.selected),
-      selectedStudents: discipline.groups.flatMap((g) =>
-        g.students.filter((s) => s.selected).map((s) => ({ ...s, groupId: g.id }))
-      ),
-    });
-    setAssignTestsOpen(false);
-    setSelectedTests([]);
+  const handleAssignTests = async () => {
+    if (!discipline || !deadline) return;
+
+    try {
+      // Собираем выбранные группы (целиком)
+      const selectedGroups = discipline.groups.filter((g) => g.selected);
+
+      // Собираем отдельных студентов (не входящих в выбранные группы целиком)
+      const selectedStudents = discipline.groups
+        .filter((g) => !g.selected) // Исключаем группы, выбранные целиком
+        .flatMap((g) => g.students.filter((s) => s.selected).map((s) => s.id));
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      // Выдаем каждый тест
+      for (const test of selectedTests) {
+        try {
+          // Выдаем группам целиком
+          for (const group of selectedGroups) {
+            const response = await fetch(`/api/assign-test/group/${group.id}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                test_id: test.id,
+                deadline: deadline.toISOString(),
+              }),
+            });
+
+            if (!response.ok) {
+              const data = await response.json();
+              console.error(`Failed to assign test ${test.name} to group ${group.name}:`, data.error);
+              errorCount++;
+            } else {
+              successCount++;
+            }
+          }
+
+          // Выдаем отдельным студентам
+          if (selectedStudents.length > 0) {
+            if (selectedStudents.length === 1) {
+              // Один студент - используем endpoint для одного
+              const response = await fetch(`/api/assign-test/student/${selectedStudents[0]}`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  test_id: test.id,
+                  deadline: deadline.toISOString(),
+                }),
+              });
+
+              if (!response.ok) {
+                const data = await response.json();
+                console.error(`Failed to assign test ${test.name} to student ${selectedStudents[0]}:`, data.error);
+                errorCount++;
+              } else {
+                successCount++;
+              }
+            } else {
+              // Несколько студентов - используем endpoint для множественной выдачи
+              const response = await fetch('/api/assign-test/student/multiple', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  test_id: test.id,
+                  student_ids: selectedStudents,
+                  deadline: deadline.toISOString(),
+                }),
+              });
+
+              if (!response.ok) {
+                const data = await response.json();
+                console.error(`Failed to assign test ${test.name} to multiple students:`, data.error);
+                errorCount++;
+              } else {
+                successCount++;
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`Error assigning test ${test.name}:`, error);
+          errorCount++;
+        }
+      }
+      // Закрываем диалог и сбрасываем состояние
+      setAssignTestsOpen(false);
+      setSelectedTests([]);
+
+      // Снимаем выделение с групп и студентов
+      const resetGroups = discipline.groups.map((group) => ({
+        ...group,
+        selected: false,
+        indeterminate: false,
+        students: group.students.map((student) => ({ ...student, selected: false })),
+      }));
+      setDiscipline({ ...discipline, groups: resetGroups });
+
+      // Снимаем выделение с тестов
+      const resetChapters = discipline.chapters.map((chapter) => ({
+        ...chapter,
+        tests: chapter.tests.map((test) => ({ ...test, selected: false })),
+      }));
+      setDiscipline({ ...discipline, chapters: resetChapters });
+    } catch (error) {
+      console.error('Error assigning tests:', error);
+      alert('Произошла критическая ошибка при выдаче тестов');
+    }
   };
 
   const toggleChapter = (chapterId: number) => {
