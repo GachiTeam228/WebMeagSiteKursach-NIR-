@@ -75,6 +75,18 @@ interface Discipline {
   tests: number;
 }
 
+// Добавляем интерфейс для активного теста
+interface ActiveTest {
+  id: number;
+  name: string;
+  discipline: string;
+  due: string;
+  group: string; // или groups, в зависимости от ответа API
+  questions: number;
+  maxScore: number;
+  duration: number;
+}
+
 export default function TeacherDashboard() {
   const router = useRouter();
   const [tabValue, setTabValue] = useState(0);
@@ -105,6 +117,9 @@ export default function TeacherDashboard() {
     confirmNewPass: '',
   });
   const [activateChangePass, setActivateChangePass] = useState<boolean>(false);
+  // Состояния для активных тестов
+  const [activeTests, setActiveTests] = useState<ActiveTest[]>([]);
+  const [isLoadingActiveTests, setIsLoadingActiveTests] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -116,6 +131,40 @@ export default function TeacherDashboard() {
 
   // 1. Сохраняем текущее время в стейте
   const [now, setNow] = useState<Date | null>(null);
+
+  // 2. Обновляем его каждую секунду только на клиенте
+  useEffect(() => {
+    setNow(new Date());
+    const interval = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Загрузка активных тестов
+  useEffect(() => {
+    if (tabValue !== 0) return;
+
+    const fetchActiveTests = async () => {
+      setIsLoadingActiveTests(true);
+      try {
+        const response = await fetch('/api/test/active');
+        if (!response.ok) {
+          throw new Error('Failed to fetch active tests');
+        }
+        const data = await response.json();
+        setActiveTests(data);
+      } catch (e) {
+        setSnackbar({
+          open: true,
+          message: 'Ошибка при загрузке активных тестов',
+          severity: 'error',
+        });
+      } finally {
+        setIsLoadingActiveTests(false);
+      }
+    };
+
+    fetchActiveTests();
+  }, [tabValue]);
 
   const handlePasswordChange = async () => {
     const { currentPass, newPass, confirmNewPass } = passwords;
@@ -284,7 +333,7 @@ export default function TeacherDashboard() {
           ...group,
           students: group.students.map((student) => ({
             ...student,
-            email: student.email || `${student.username}@bmstu.ru`,
+            email: student.email || `${student.username}@student.bmstu.ru`,
           })),
         }));
 
@@ -303,19 +352,6 @@ export default function TeacherDashboard() {
 
     fetchGroups();
   }, [tabValue]);
-
-  const activeTests = [
-    {
-      id: 1,
-      name: 'Сортировки и поиск',
-      discipline: 'Алгоритмы',
-      due: '2025-05-25T22:39:00',
-      group: 'CS-201',
-      questions: 15,
-      maxScore: 100,
-      duration: 90,
-    },
-  ];
 
   const toggleGroup = (groupId: number) => {
     setExpandedGroups((prev) => ({
@@ -400,7 +436,7 @@ export default function TeacherDashboard() {
         username: username,
       };
     });
-    return { group_name: studentsArr[0][3], students: students };
+    return { group_name: studentsArr[0][3] + new Date().getFullYear().toString(), students: students };
   }
 
   const handleCreateGroup = async () => {
@@ -565,79 +601,93 @@ export default function TeacherDashboard() {
                   >
                     Текущие активные тесты
                   </Typography>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                    {activeTests.map((test) => (
-                      <Card
-                        variant="outlined"
-                        key={test.id}
-                        sx={{ width: '100%' }}
-                      >
-                        <CardContent>
-                          <Typography
-                            variant="subtitle1"
-                            sx={{ fontWeight: 600, mb: 1 }}
-                          >
-                            {test.name}
-                          </Typography>
-                          <Typography
-                            variant="body2"
-                            color="text.secondary"
-                            sx={{ mb: 2 }}
-                          >
-                            {test.discipline} | Группа: {test.group}
-                          </Typography>
-                          <Box
-                            sx={{
-                              display: 'flex',
-                              gap: 1,
-                              mb: 2,
-                              flexWrap: 'wrap',
-                            }}
-                          >
-                            <Chip
-                              label={`Вопросов: ${test.questions}`}
-                              variant="outlined"
-                              size="small"
-                              icon={<Quiz fontSize="small" />}
-                            />
-                            <Chip
-                              label={`Макс. баллов: ${test.maxScore}`}
-                              variant="outlined"
-                              size="small"
-                              color="primary"
-                            />
-                            <Chip
-                              label={
-                                test.duration === 0 ? 'Без ограничения времени' : `Длительность: ${test.duration} мин`
-                              }
-                              variant="outlined"
-                              size="small"
-                              icon={<AccessTime fontSize="small" />}
-                            />
-                          </Box>
-                          <Box
-                            sx={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 2,
-                            }}
-                          >
-                            <Chip
-                              label={`Срок: ${format(new Date(test.due), 'dd.MM.yyyy HH:mm')}`}
-                              variant="outlined"
-                              color="primary"
-                            />
-                            <Chip
-                              icon={<TimerOutlined />}
-                              label={`Осталось: ${calculateTimeLeft(test.due)}`}
-                              color={now && differenceInSeconds(new Date(test.due), now) < 300 ? 'error' : 'primary'}
-                              variant="outlined"
-                            />
-                          </Box>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </Box>
+                  {isLoadingActiveTests ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                      <CircularProgress />
+                    </Box>
+                  ) : activeTests.length === 0 ? (
+                    <Box sx={{ textAlign: 'center', p: 4, color: 'text.secondary' }}>
+                      <Quiz sx={{ fontSize: 48, mb: 2 }} />
+                      <Typography>Активных тестов нет.</Typography>
+                      <Typography variant="body2">
+                        Вы можете назначить новый тест в разделе &quot;Дисциплины&quot;.
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      {activeTests.map((test) => (
+                        <Card
+                          variant="outlined"
+                          key={test.id}
+                          sx={{ width: '100%' }}
+                        >
+                          <CardContent>
+                            <Typography
+                              variant="subtitle1"
+                              sx={{ fontWeight: 600, mb: 1 }}
+                            >
+                              {test.name}
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              color="text.secondary"
+                              sx={{ mb: 2 }}
+                            >
+                              {test.discipline} | Группа: {test.groups}
+                            </Typography>
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                gap: 1,
+                                mb: 2,
+                                flexWrap: 'wrap',
+                              }}
+                            >
+                              <Chip
+                                label={`Вопросов: ${test.questions}`}
+                                variant="outlined"
+                                size="small"
+                                icon={<Quiz fontSize="small" />}
+                              />
+                              <Chip
+                                label={`Макс. баллов: ${test.maxScore}`}
+                                variant="outlined"
+                                size="small"
+                                color="primary"
+                              />
+                              <Chip
+                                label={
+                                  test.duration === 0 ? 'Без ограничения времени' : `Длительность: ${test.duration} мин`
+                                }
+                                variant="outlined"
+                                size="small"
+                                icon={<AccessTime fontSize="small" />}
+                              />
+                            </Box>
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 2,
+                              }}
+                            >
+                              <Chip
+                                label={`Срок: ${format(new Date(test.due), 'dd.MM.yyyy HH:mm')}`}
+                                variant="outlined"
+                                color="primary"
+                              />
+                              <Chip
+                                icon={<TimerOutlined />}
+                                label={`Осталось: ${calculateTimeLeft(test.due)}`}
+                                color={now && differenceInSeconds(new Date(test.due), now) < 300 ? 'error' : 'primary'}
+                                variant="outlined"
+                              />
+                            </Box>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </Box>
+                  )}
                 </CardContent>
               </Card>
             </Grid>

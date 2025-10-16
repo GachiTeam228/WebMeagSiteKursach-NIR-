@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     }
 
     // Генерация токена с ролью
-    const token = jwt.sign({ username: user.username, role: user.role_id }, SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ username: user.username, role: user.role_id, id: user.id }, SECRET, { expiresIn: '7d' });
 
     // Установка cookie
     (await cookies()).set('token', token, {

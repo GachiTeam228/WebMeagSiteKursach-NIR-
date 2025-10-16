@@ -21,16 +21,16 @@ export async function POST(request: Request) {
     }
 
     // Проверяем, что пользователь — преподаватель (role_id === 2)
-    const user = db.prepare(
-      'SELECT id, role_id FROM Users WHERE username = ? AND is_active = 1'
-    ).get(payload.username) as { id: number, role_id: number };
+    const user = db
+      .prepare('SELECT id, role_id FROM Users WHERE username = ? AND is_active = 1')
+      .get(payload.username) as { id: number; role_id: number };
 
     if (!user || user.role_id !== 2) {
       return NextResponse.json({ error: 'Only teachers can assign tests' }, { status: 403 });
     }
 
     const body = await request.json();
-    const { test_id, student_ids } = body;
+    const { test_id, student_ids, deadline } = body;
 
     if (!test_id || typeof test_id !== 'number') {
       return NextResponse.json({ error: 'Invalid test id' }, { status: 400 });
@@ -40,18 +40,18 @@ export async function POST(request: Request) {
     }
 
     // Проверяем, существует ли тест
-    const test = db.prepare(
-      'SELECT id FROM Tests WHERE id = ?'
-    ).get(test_id);
+    const test = db.prepare('SELECT id FROM Tests WHERE id = ?').get(test_id);
 
     if (!test) {
       return NextResponse.json({ error: 'Test not found' }, { status: 404 });
     }
 
     // Получаем только существующих и активных студентов из списка
-    const students = db.prepare(
-      `SELECT id FROM Users WHERE id IN (${student_ids.map(() => '?').join(',')}) AND role_id = 1 AND is_active = 1`
-    ).all(...student_ids) as { id: number }[];
+    const students = db
+      .prepare(
+        `SELECT id FROM Users WHERE id IN (${student_ids.map(() => '?').join(',')}) AND role_id = 1 AND is_active = 1`
+      )
+      .all(...student_ids) as { id: number }[];
 
     if (students.length === 0) {
       return NextResponse.json({ error: 'No valid students found' }, { status: 404 });
@@ -59,13 +59,13 @@ export async function POST(request: Request) {
 
     // Выдаём тест выбранным студентам (создаём записи в TestAssignments)
     const insert = db.prepare(
-      `INSERT INTO TestAssignments (test_id, user_id, is_completed, attempt_number)
-       VALUES (?, ?, 0, 1)`
+      `INSERT INTO TestAssignments (test_id, user_id, is_completed, deadline)
+       VALUES (?, ?, 0, ?)`
     );
     const transaction = db.transaction(() => {
       for (const student of students) {
         try {
-          insert.run(test_id, student.id);
+          insert.run(test_id, student.id, deadline || null);
         } catch (e: any) {
           // Игнорируем ошибку, если тест уже выдан этому студенту
           if (e.code !== 'SQLITE_CONSTRAINT') throw e;
