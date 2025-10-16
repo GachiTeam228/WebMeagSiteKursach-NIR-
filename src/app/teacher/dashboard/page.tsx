@@ -294,7 +294,7 @@ export default function TeacherDashboard() {
           ...group,
           students: group.students.map((student) => ({
             ...student,
-            email: student.email || `${student.username}@bmstu.ru`,
+            email: student.email || `${student.username}@student.bmstu.ru`,
           })),
         }));
 

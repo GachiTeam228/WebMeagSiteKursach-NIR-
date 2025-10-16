@@ -23,10 +23,9 @@ import {
   Snackbar,
   Alert,
 } from '@mui/material';
-import { Add, Close, Delete, RadioButtonChecked, CheckBox, ArrowBack, AccessTime, Quiz } from '@mui/icons-material';
+import { Add, Close, Delete, RadioButtonChecked, CheckBox, ArrowBack, Quiz } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, use } from 'react';
-import { MobileDateTimePicker } from '@mui/x-date-pickers/MobileDateTimePicker';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { ru } from 'date-fns/locale';
