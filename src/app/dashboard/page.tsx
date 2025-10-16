@@ -42,6 +42,17 @@ interface Discipline {
   tests: number;
 }
 
+interface ActiveTest {
+  id: number;
+  name: string;
+  discipline: string;
+  due: string;
+  groups: string; // или groups, в зависимости от ответа API
+  questions: number;
+  maxScore: number;
+  duration: number;
+}
+
 export default function StudentDashboard() {
   const router = useRouter();
   const [tabValue, setTabValue] = useState(0);
@@ -62,7 +73,6 @@ export default function StudentDashboard() {
     newPass: '',
     confirmNewPass: '',
   });
-  const [activateChangePass, setActivateChangePass] = useState<boolean>(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -72,28 +82,8 @@ export default function StudentDashboard() {
     }));
   };
 
-  const activeTests = [
-    {
-      id: 1,
-      name: 'Сортировки и поиск',
-      discipline: 'Алгоритмы',
-      due: '2025-05-25T22:39:00',
-      group: 'CS-201',
-      questions: 15,
-      maxScore: 100,
-      duration: 90,
-    },
-    {
-      id: 2,
-      name: 'Нормальные формы',
-      discipline: 'Базы данных',
-      due: '2025-05-28T23:59:00',
-      group: 'CS-202',
-      questions: 10,
-      maxScore: 80,
-      duration: 60,
-    },
-  ];
+  const [activeTests, setActiveTests] = useState<ActiveTest[]>([]);
+  const [isLoadingActiveTests, setIsLoadingActiveTests] = useState(false);
 
   const [disciplines, setDisciplines] = useState<Discipline[]>([]);
 
@@ -149,12 +139,12 @@ export default function StudentDashboard() {
 
   const startTest = () => {
     if (selectedTestId) {
-      router.push(`/test/${selectedTestId}`);
+      router.push(`/tests/${selectedTestId}`);
     }
   };
 
   // 1. Сохраняем текущее время в стейте
-  const [now, setNow] = useState<Date | null>(null);
+  const [, setNow] = useState<Date | null>(null);
 
   // 2. Обновляем его каждую секунду только на клиенте
   useEffect(() => {
@@ -163,9 +153,35 @@ export default function StudentDashboard() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    if (tabValue !== 0 || activeTests.length !== 0) return;
+
+    const fetchActiveTests = async () => {
+      setIsLoadingActiveTests(true);
+      try {
+        const response = await fetch('/api/test/active');
+        if (!response.ok) {
+          throw new Error('Failed to fetch active tests');
+        }
+        const data = await response.json();
+        setActiveTests(data);
+      } catch {
+        setSnackbar({
+          open: true,
+          message: 'Ошибка при загрузке активных тестов',
+          severity: 'error',
+        });
+      } finally {
+        setIsLoadingActiveTests(false);
+      }
+    };
+
+    fetchActiveTests();
+  }, [tabValue]);
+
   // Загрузка дисциплин с бэкенда
   useEffect(() => {
-    if (tabValue !== 1) return;
+    if (tabValue !== 1 || disciplines.length !== 0) return;
 
     const fetchDisciplines = async () => {
       setIsLoadingDisciplines(true);
@@ -293,76 +309,87 @@ export default function StudentDashboard() {
                 Текущие активные тесты
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                {activeTests.map((test) => (
-                  <Card
-                    variant="outlined"
-                    key={test.id}
-                    sx={{ width: '100%', cursor: 'pointer' }}
-                    onClick={() => handleTestClick(test.id)}
-                  >
-                    <CardContent>
-                      <Typography
-                        variant="subtitle1"
-                        sx={{ fontWeight: 600, mb: 1 }}
-                      >
-                        {test.name}
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ mb: 2 }}
-                      >
-                        {test.discipline} | Группа: {test.group}
-                      </Typography>
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          gap: 1,
-                          mb: 2,
-                          flexWrap: 'wrap',
-                        }}
-                      >
-                        <Chip
-                          label={`Вопросов: ${test.questions}`}
-                          variant="outlined"
-                          size="small"
-                          icon={<Quiz fontSize="small" />}
-                        />
-                        <Chip
-                          label={`Макс. баллов: ${test.maxScore}`}
-                          variant="outlined"
-                          size="small"
-                          color="primary"
-                        />
-                        <Chip
-                          label={`Длительность: ${test.duration} мин`}
-                          variant="outlined"
-                          size="small"
-                          icon={<AccessTime fontSize="small" />}
-                        />
-                      </Box>
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 2,
-                        }}
-                      >
-                        <Chip
-                          label={`Срок: ${format(new Date(test.due), 'dd.MM.yyyy HH:mm')}`}
-                          variant="outlined"
-                          color="primary"
-                        />
-                        <Chip
-                          icon={<TimerOutlined />}
-                          label={`Осталось: ${calculateTimeLeft(test.due)}`}
-                          color={differenceInSeconds(new Date(test.due), new Date()) < 3600 ? 'error' : 'primary'}
-                          variant="outlined"
-                        />
-                      </Box>
-                    </CardContent>
-                  </Card>
-                ))}
+                {isLoadingActiveTests ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                    <CircularProgress />
+                  </Box>
+                ) : activeTests.length === 0 ? (
+                  <Box sx={{ textAlign: 'center', p: 4, color: 'text.secondary' }}>
+                    <Quiz sx={{ fontSize: 48, mb: 2 }} />
+                    <Typography>Активных тестов нет</Typography>
+                  </Box>
+                ) : (
+                  activeTests.map((test) => (
+                    <Card
+                      variant="outlined"
+                      key={test.id}
+                      sx={{ width: '100%', cursor: 'pointer' }}
+                      onClick={() => handleTestClick(test.id)}
+                    >
+                      <CardContent>
+                        <Typography
+                          variant="subtitle1"
+                          sx={{ fontWeight: 600, mb: 1 }}
+                        >
+                          {test.name}
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ mb: 2 }}
+                        >
+                          {test.discipline} | Группа: {test.groups}
+                        </Typography>
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            gap: 1,
+                            mb: 2,
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          <Chip
+                            label={`Вопросов: ${test.questions}`}
+                            variant="outlined"
+                            size="small"
+                            icon={<Quiz fontSize="small" />}
+                          />
+                          <Chip
+                            label={`Макс. баллов: ${test.maxScore}`}
+                            variant="outlined"
+                            size="small"
+                            color="primary"
+                          />
+                          <Chip
+                            label={`Длительность: ${test.duration ? test.duration + ' мин' : 'без ограничения'}`}
+                            variant="outlined"
+                            size="small"
+                            icon={<AccessTime fontSize="small" />}
+                          />
+                        </Box>
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 2,
+                          }}
+                        >
+                          <Chip
+                            label={`Срок: ${format(new Date(test.due), 'dd.MM.yyyy HH:mm')}`}
+                            variant="outlined"
+                            color="primary"
+                          />
+                          <Chip
+                            icon={<TimerOutlined />}
+                            label={`Осталось: ${calculateTimeLeft(test.due)}`}
+                            color={differenceInSeconds(new Date(test.due), new Date()) < 3600 ? 'error' : 'primary'}
+                            variant="outlined"
+                          />
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
               </Box>
             </CardContent>
           </Card>
@@ -509,10 +536,7 @@ export default function StudentDashboard() {
           <Button
             variant="contained"
             onClick={() => {
-              setActivateChangePass(true);
-              // Логика изменения пароля
               handlePasswordChange();
-              // setChangePasswordOpen(false);
             }}
           >
             Сохранить

@@ -25,7 +25,7 @@ import {
 } from '@mui/material';
 import { Add, Close, Delete, RadioButtonChecked, CheckBox, ArrowBack, Quiz } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect, use, Usable } from 'react';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { ru } from 'date-fns/locale';
@@ -55,7 +55,7 @@ interface TestData {
   questions: Question[];
 }
 
-export default function EditTestPage({ params }: { params: { id: string } }) {
+export default function EditTestPage({ params }: { params: Usable<{ id: string }> }) {
   const { id: testId } = use(params);
   const router = useRouter();
 
@@ -159,7 +159,7 @@ export default function EditTestPage({ params }: { params: { id: string } }) {
     setTestData({
       ...testData,
       questions: testData.questions.map((q) =>
-        q.id === questionId ? { ...q, [field]: field === 'points' ? parseInt(value) || 0 : value } : q
+        q.id === questionId ? { ...q, [field]: field === 'points' ? parseInt(value) || '' : value } : q
       ),
     });
   };

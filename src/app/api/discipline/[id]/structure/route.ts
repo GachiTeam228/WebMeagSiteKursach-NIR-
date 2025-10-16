@@ -91,8 +91,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
           // Фронтенд должен присылать 'name' для новых тестов
           db.prepare(
             `
-              INSERT INTO Tests (title, subject_id, chapter_id, order_number, deadline)
-              VALUES (?, ?, ?, ?, datetime('now', '+7 days')) -- дедлайн по умолчанию
+              INSERT INTO Tests (title, subject_id, chapter_id, order_number)
+              VALUES (?, ?, ?, ?) -- дедлайн по умолчанию
             `
           ).run(test.name, disciplineId, currentChapterId, test.order);
         }

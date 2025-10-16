@@ -81,10 +81,18 @@ interface ActiveTest {
   name: string;
   discipline: string;
   due: string;
-  group: string; // или groups, в зависимости от ответа API
+  groups: string; // или groups, в зависимости от ответа API
   questions: number;
   maxScore: number;
   duration: number;
+}
+
+interface TeacherRegisterInfo {
+  username: string;
+  first_name: string;
+  last_name: string;
+  password: string;
+  confirm_password: string;
 }
 
 export default function TeacherDashboard() {
@@ -116,14 +124,30 @@ export default function TeacherDashboard() {
     newPass: '',
     confirmNewPass: '',
   });
-  const [activateChangePass, setActivateChangePass] = useState<boolean>(false);
   // Состояния для активных тестов
   const [activeTests, setActiveTests] = useState<ActiveTest[]>([]);
   const [isLoadingActiveTests, setIsLoadingActiveTests] = useState(false);
 
+  const [registerTeacherOpen, setRegisterTeacherOpen] = useState(false);
+  const [teacherRegisterInfo, setTeacherRegisterInfo] = useState<TeacherRegisterInfo>({
+    username: '',
+    first_name: '',
+    last_name: '',
+    password: '',
+    confirm_password: '',
+  });
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setPasswords((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleTeacherRegisterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setTeacherRegisterInfo((prev) => ({
       ...prev,
       [name]: value,
     }));
@@ -141,7 +165,7 @@ export default function TeacherDashboard() {
 
   // Загрузка активных тестов
   useEffect(() => {
-    if (tabValue !== 0) return;
+    if (tabValue !== 0 || activeTests.length !== 0) return;
 
     const fetchActiveTests = async () => {
       setIsLoadingActiveTests(true);
@@ -152,7 +176,7 @@ export default function TeacherDashboard() {
         }
         const data = await response.json();
         setActiveTests(data);
-      } catch (e) {
+      } catch {
         setSnackbar({
           open: true,
           message: 'Ошибка при загрузке активных тестов',
@@ -194,45 +218,39 @@ export default function TeacherDashboard() {
     }
   };
 
+  const handleTeacherRegister = async () => {
+    const { password, confirm_password } = teacherRegisterInfo;
+    try {
+      if (password !== confirm_password) {
+        throw new Error('Пароли не совпадают');
+      }
+
+      const response = await fetch(`/api/register`, {
+        method: 'POST',
+        body: JSON.stringify(teacherRegisterInfo),
+      });
+
+      if (!response.ok) {
+        throw new Error('Ошибка регистрации пользователя');
+      }
+
+      setRegisterTeacherOpen(false);
+      setSnackbar({
+        open: true,
+        message: 'Преподаватель успешно зарегистрирован',
+        severity: 'success',
+      });
+    } catch (e) {
+      return e;
+    }
+  };
+
   // 2. Обновляем его каждую секунду только на клиенте
   useEffect(() => {
     setNow(new Date());
     const interval = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(interval);
   }, []);
-
-  // useEffect(() => {
-  //   if (!activateChangePass) return;
-
-  //   const { currentPass, newPass, confirmNewPass } = passwords;
-
-  //   const fetchPassword = async () => {
-  //     try {
-  //       if (newPass !== confirmNewPass) {
-  //         throw new Error('Пароли не совпадают');
-  //       }
-
-  //       const response = await fetch('/api/change-password', {
-  //         method: 'POST',
-  //         body: JSON.stringify({ currentPass, newPass, confirmNewPass }),
-  //       });
-
-  //       if (!response.ok) {
-  //         throw new Error('Ошибка смены пароля');
-  //       }
-
-  //       setSnackbar({
-  //         open: true,
-  //         message: 'Пароль успешно изменён',
-  //         severity: 'success',
-  //       });
-  //     } catch (e) {
-  //       return e;
-  //     }
-  //   };
-
-  //   fetchPassword();
-  // }, [activateChangePass]);
 
   useEffect(() => {
     if (!logout) return;
@@ -289,7 +307,7 @@ export default function TeacherDashboard() {
 
   // Загрузка дисциплин с бэкенда
   useEffect(() => {
-    if (tabValue !== 1) return;
+    if (tabValue !== 1 || disciplines.length !== 0) return;
 
     const fetchDisciplines = async () => {
       setIsLoadingDisciplines(true);
@@ -317,7 +335,7 @@ export default function TeacherDashboard() {
 
   // Загрузка групп с бэкенда
   useEffect(() => {
-    if (tabValue !== 2) return;
+    if (tabValue !== 2 || groups.length !== 0) return;
 
     const fetchGroups = async () => {
       setIsLoadingGroups(true);
@@ -376,14 +394,6 @@ export default function TeacherDashboard() {
 
     return `${hours > 0 ? pad(hours) + ':' : ''}${pad(mins)}:${pad(secs)}`;
   };
-
-  // const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-  //   setUserMenuAnchorEl(event.currentTarget);
-  // };
-
-  // const handleUserMenuClose = () => {
-  //   setUserMenuAnchorEl(null);
-  // };
 
   const ruToEnMap: Record<string, string> = {
     А: 'A',
@@ -556,6 +566,7 @@ export default function TeacherDashboard() {
         meLoading={meLoading}
         onLogout={() => setLogout(true)}
         onChangePassword={() => setChangePasswordOpen(true)}
+        onTeacherRegister={() => setRegisterTeacherOpen(true)}
       />
 
       {/* Основной контент */}
@@ -657,7 +668,9 @@ export default function TeacherDashboard() {
                               />
                               <Chip
                                 label={
-                                  test.duration === 0 ? 'Без ограничения времени' : `Длительность: ${test.duration} мин`
+                                  test.duration === null
+                                    ? 'Без ограничения времени'
+                                    : `Длительность:${test.duration} мин`
                                 }
                                 variant="outlined"
                                 size="small"
@@ -1059,13 +1072,94 @@ export default function TeacherDashboard() {
           <Button
             variant="contained"
             onClick={() => {
-              setActivateChangePass(true);
               // Логика изменения пароля
               handlePasswordChange();
               // setChangePasswordOpen(false);
             }}
           >
             Сохранить
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={registerTeacherOpen}
+        onClose={() => setRegisterTeacherOpen(false)}
+      >
+        <DialogTitle>
+          Зарегистрировать преподавателя
+          <IconButton
+            onClick={() => setRegisterTeacherOpen(false)}
+            sx={{ position: 'absolute', right: 8, top: 8 }}
+          >
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Имя пользователя (будет использоваться при входе в систему)"
+            fullWidth
+            variant="outlined"
+            sx={{ mb: 2 }}
+            name="username"
+            value={teacherRegisterInfo.username}
+            onChange={handleTeacherRegisterChange}
+          />
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Имя преподавателя"
+            fullWidth
+            variant="outlined"
+            sx={{ mb: 2 }}
+            name="first_name"
+            value={teacherRegisterInfo.first_name}
+            onChange={handleTeacherRegisterChange}
+          />
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Фамилия преподавателя"
+            fullWidth
+            variant="outlined"
+            sx={{ mb: 2 }}
+            name="last_name"
+            value={teacherRegisterInfo.last_name}
+            onChange={handleTeacherRegisterChange}
+          />
+          <TextField
+            margin="dense"
+            label="Пароль"
+            type="password"
+            fullWidth
+            variant="outlined"
+            sx={{ mb: 2 }}
+            name="password"
+            value={teacherRegisterInfo.password}
+            onChange={handleTeacherRegisterChange}
+          />
+          <TextField
+            margin="dense"
+            label="Подтвердите пароль"
+            type="password"
+            fullWidth
+            variant="outlined"
+            name="confirm_password"
+            value={teacherRegisterInfo.confirm_password}
+            onChange={handleTeacherRegisterChange}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setChangePasswordOpen(false)}>Отмена</Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              handleTeacherRegister();
+            }}
+          >
+            Зарегистрировать
           </Button>
         </DialogActions>
       </Dialog>
