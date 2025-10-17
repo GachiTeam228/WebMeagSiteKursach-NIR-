@@ -40,22 +40,6 @@ export async function POST(request: Request, { params }: { params: { id: string 
       return NextResponse.json({ error: 'Invalid test id' }, { status: 400 });
     }
 
-    // Проверяем, что тест назначен этому студенту
-    const testAssignment = db
-      .prepare(
-        `SELECT id, is_completed FROM TestAssignments 
-         WHERE test_id = ? AND user_id = ?`
-      )
-      .get(testId, user.id) as { id: number; is_completed: number } | undefined;
-
-    if (!testAssignment) {
-      return NextResponse.json({ error: 'Test is not assigned to you' }, { status: 403 });
-    }
-
-    if (testAssignment.is_completed === 1) {
-      return NextResponse.json({ error: 'Test assignment already completed' }, { status: 403 });
-    }
-
     // Проверяем, есть ли активная попытка
     const attempt = db
       .prepare(`SELECT id FROM Attempts WHERE user_id = ? AND test_id = ? AND is_completed = 0`)
@@ -65,7 +49,23 @@ export async function POST(request: Request, { params }: { params: { id: string 
       return NextResponse.json({ error: 'No active attempt found' }, { status: 404 });
     }
 
-    // --- ИЗМЕНЕНИЕ: Считаем результат по баллам (points) ---
+    // Ищем НЕЗАВЕРШЁННЫЙ assignment, связанный с этой попыткой
+    const testAssignment = db
+      .prepare(
+        `SELECT id, is_completed FROM TestAssignments 
+         WHERE test_id = ? AND user_id = ? AND is_completed = 0
+         ORDER BY deadline ASC
+         LIMIT 1`
+      )
+      .get(testId, user.id) as { id: number; is_completed: number } | undefined;
+
+    if (!testAssignment) {
+      // Если нет незавершённого assignment, значит все завершены или тест не назначен
+      // Но мы всё равно можем завершить попытку без обновления assignment
+      console.warn(`No active assignment found for user ${user.id}, test ${testId}, but attempt exists`);
+    }
+
+    // --- Считаем результат по баллам (points) ---
 
     // 1. Получаем все вопросы теста вместе с баллами за них
     const questions = db.prepare(`SELECT id, question_type, points FROM Questions WHERE test_id = ?`).all(testId) as {
@@ -133,8 +133,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
       `UPDATE Attempts SET is_completed = 1, end_time = datetime('now', 'localtime'), score = ? WHERE id = ?`
     ).run(totalScore, attempt.id);
 
-    // 8. Если тест пройден успешно, обновляем TestAssignment
-    if (isPassed) {
+    // 8. Если тест пройден успешно И есть активный assignment, обновляем его
+    if (isPassed && testAssignment) {
       db.prepare(`UPDATE TestAssignments SET is_completed = 1 WHERE id = ?`).run(testAssignment.id);
     }
 
@@ -144,7 +144,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       score: totalScore,
       passing_score: passingScore,
       passed: isPassed,
-      assignment_completed: isPassed,
+      assignment_completed: isPassed && testAssignment !== undefined,
     });
   } catch (error) {
     console.error('Error ending test attempt:', error);

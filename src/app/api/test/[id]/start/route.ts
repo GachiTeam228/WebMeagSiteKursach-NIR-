@@ -32,34 +32,43 @@ export async function POST(request: Request, { params }: { params: { id: string 
       return NextResponse.json({ error: 'Invalid test ID' }, { status: 400 });
     }
 
-    // Проверяем, что тест назначен этому студенту
+    // Ищем НЕЗАВЕРШЁННЫЙ assignment (is_completed = 0)
     const testAssignment = db
       .prepare(
-        `SELECT id, deadline, is_completed FROM TestAssignments 
-         WHERE test_id = ? AND user_id = ?`
+        `SELECT id, deadline, is_completed 
+         FROM TestAssignments 
+         WHERE test_id = ? AND user_id = ? AND is_completed = 0
+         ORDER BY deadline ASC
+         LIMIT 1`
       )
       .get(testId, user.id) as { id: number; deadline: string | null; is_completed: number } | undefined;
 
+    // Если незавершённого assignment нет, проверяем, был ли он вообще назначен
     if (!testAssignment) {
-      return NextResponse.json(
-        {
-          error: 'Test is not assigned to you',
-          assigned: false,
-        },
-        { status: 403 }
-      );
-    }
+      // Проверяем, есть ли хотя бы один assignment (завершённый или нет)
+      const anyAssignment = db
+        .prepare('SELECT COUNT(*) as count FROM TestAssignments WHERE test_id = ? AND user_id = ?')
+        .get(testId, user.id) as { count: number };
 
-    // Проверяем, завершён ли assignment
-    if (testAssignment.is_completed === 1) {
-      return NextResponse.json(
-        {
-          error: 'Test assignment already completed',
-          assigned: true,
-          assignment_completed: true,
-        },
-        { status: 403 }
-      );
+      if (anyAssignment.count === 0) {
+        return NextResponse.json(
+          {
+            error: 'Test is not assigned to you',
+            assigned: false,
+          },
+          { status: 403 }
+        );
+      } else {
+        // Тест был назначен, но все assignments завершены
+        return NextResponse.json(
+          {
+            error: 'All test assignments are completed',
+            assigned: true,
+            assignment_completed: true,
+          },
+          { status: 403 }
+        );
+      }
     }
 
     // Проверяем дедлайн (если установлен)
@@ -82,6 +91,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     const test = db.prepare('SELECT time_limit_minutes FROM Tests WHERE id = ?').get(testId) as {
       time_limit_minutes: number | null;
     };
+
     if (!test) {
       return NextResponse.json({ error: 'Test not found' }, { status: 404 });
     }
@@ -98,7 +108,6 @@ export async function POST(request: Request, { params }: { params: { id: string 
       if (durationMinutes === null || durationMinutes <= 0) {
         return null; // Нет лимита времени
       }
-      // Используем `strftime` из SQLite для безопасного вычисления разницы в секундах
       const diff = db
         .prepare("SELECT strftime('%s', 'now', 'localtime') - strftime('%s', ?) as seconds")
         .get(startTime) as { seconds: number };

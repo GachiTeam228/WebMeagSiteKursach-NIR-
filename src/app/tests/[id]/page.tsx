@@ -19,6 +19,8 @@ import {
 import { ArrowBack, TimerOutlined, CheckCircle } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, use, useCallback, useRef } from 'react';
+import Image from 'next/image';
+import { style } from '@mui/system';
 
 // --- ИНТЕРФЕЙСЫ ДЛЯ ТИПИЗАЦИИ ---
 interface Option {
@@ -31,6 +33,7 @@ interface Question {
   question_text: string;
   question_type: 'single' | 'multiple';
   options: Option[];
+  image_url?: string;
 }
 
 interface TestData {
@@ -388,6 +391,22 @@ export default function TestPage({ params }: { params: { id: string } }) {
           >
             {currentQuestion?.question_text}
           </Typography>
+
+          {currentQuestion.image_url && (
+            <Box sx={{ my: 2 }}>
+              <img
+                src={currentQuestion.image_url}
+                alt="Вопрос"
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '400px',
+                  borderRadius: '8px',
+                  border: '1px solid #ddd',
+                  display: 'block',
+                }}
+              />
+            </Box>
+          )}
 
           {currentQuestion?.question_type === 'single' ? (
             <RadioGroup

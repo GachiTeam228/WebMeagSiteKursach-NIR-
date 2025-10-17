@@ -114,36 +114,22 @@
 
 // lib/db.ts - улучшенная версия
 
+// lib/db.ts
+
 import Database from 'better-sqlite3';
 import path from 'path';
 
 const dbPath = path.join(process.cwd(), 'db', 'base.db');
 
-// Создаём singleton для переиспользования соединения
-let dbInstance: Database.Database | null = null;
+// Простое создание экземпляра без автоматического закрытия
+export const db = new Database(dbPath);
 
-export const getDb = () => {
-  if (!dbInstance) {
-    dbInstance = new Database(dbPath);
+// Оптимизации SQLite
+db.pragma('journal_mode = WAL');
+db.pragma('synchronous = NORMAL');
+db.pragma('cache_size = -64000');
+db.pragma('temp_store = MEMORY');
+db.pragma('mmap_size = 268435456');
 
-    // Оптимизация производительности SQLite
-    dbInstance.pragma('journal_mode = WAL'); // Write-Ahead Logging для лучшей параллельности
-    dbInstance.pragma('synchronous = NORMAL'); // Баланс между скоростью и надёжностью
-    dbInstance.pragma('cache_size = -64000'); // 64MB кеша
-    dbInstance.pragma('temp_store = MEMORY'); // Временные данные в памяти
-    dbInstance.pragma('mmap_size = 268435456'); // 256MB memory-mapped I/O
-  }
-
-  return dbInstance;
-};
-
-export const db = getDb();
-
-// Закрываем соединение при завершении процесса
-if (typeof process !== 'undefined') {
-  process.on('beforeExit', () => {
-    if (dbInstance) {
-      dbInstance.close();
-    }
-  });
-}
+// В development режиме Next.js сам управляет жизненным циклом
+// В production процесс Node.js автоматически закроет соединение при завершении

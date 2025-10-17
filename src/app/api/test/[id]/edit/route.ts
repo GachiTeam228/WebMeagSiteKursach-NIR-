@@ -16,6 +16,7 @@ interface QuestionData {
   question_type: 'single' | 'multiple' | 'text';
   points: number;
   order_number: number;
+  image_url?: string | null; // Добавлено поле для изображения
   options?: AnswerOptionData[];
 }
 
@@ -78,27 +79,31 @@ export async function POST(request: Request, { params }: { params: { id: string 
       db.prepare('DELETE FROM Questions WHERE test_id = ?').run(testId);
 
       // Шаг 3: Вставить новые вопросы и их ответы
-      // Этот блок корректно обработает пустой массив `questions`
       if (questions.length > 0) {
+        // Обновленный SQL запрос с поддержкой image_url
         const insertQuestionStmt = db.prepare(`
-          INSERT INTO Questions (test_id, question_text, question_type, points, order_number)
-          VALUES (?, ?, ?, ?, ?)
+          INSERT INTO Questions (test_id, question_text, question_type, points, order_number, image_url)
+          VALUES (?, ?, ?, ?, ?, ?)
         `);
+
         const insertOptionStmt = db.prepare(`
           INSERT INTO AnswerOptions (question_id, option_text, is_correct)
           VALUES (?, ?, ?)
         `);
 
         for (const q of questions) {
+          // Вставляем вопрос с image_url
           const questionResult = insertQuestionStmt.run(
             testId,
             q.question_text,
             q.question_type,
             q.points,
-            q.order_number
+            q.order_number,
+            q.image_url || null // Если image_url не указан, сохраняем NULL
           );
           const newQuestionId = questionResult.lastInsertRowid;
 
+          // Вставляем варианты ответов
           if (q.options && q.options.length > 0) {
             for (const opt of q.options) {
               insertOptionStmt.run(newQuestionId, opt.option_text, opt.is_correct ? 1 : 0);
