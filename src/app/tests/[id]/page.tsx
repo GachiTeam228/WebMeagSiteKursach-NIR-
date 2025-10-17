@@ -18,9 +18,7 @@ import {
 } from '@mui/material';
 import { ArrowBack, TimerOutlined, CheckCircle } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect, use, useCallback, useRef } from 'react';
-import Image from 'next/image';
-import { style } from '@mui/system';
+import { useState, useEffect, use, useCallback, useRef, Usable } from 'react';
 
 // --- ИНТЕРФЕЙСЫ ДЛЯ ТИПИЗАЦИИ ---
 interface Option {
@@ -42,7 +40,7 @@ interface TestData {
   questions: Question[];
 }
 
-export default function TestPage({ params }: { params: { id: string } }) {
+export default function TestPage({ params }: { params: Usable<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
   const [testData, setTestData] = useState<TestData | null>(null);
