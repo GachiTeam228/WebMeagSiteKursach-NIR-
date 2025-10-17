@@ -470,8 +470,8 @@ export default function StudentDisciplinePage({ params }: { params: Promise<{ id
                                     )}
                                     {item.status === 'missed' && (
                                       <Chip
-                                        label="Пропущено"
-                                        color="error"
+                                        label="Не назначено"
+                                        color="secondary"
                                         size="small"
                                       />
                                     )}

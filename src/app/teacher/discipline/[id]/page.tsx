@@ -105,6 +105,7 @@ export default function DisciplinePage({ params }: { params: Usable<{ id: string
 
   const [discipline, setDiscipline] = useState<DisciplineType | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activateReload, setActivateReload] = useState(false);
 
   useEffect(() => {
     if (!id) {
@@ -125,7 +126,7 @@ export default function DisciplinePage({ params }: { params: Usable<{ id: string
       }
     };
     fetchDisciplines();
-  }, [id]);
+  }, [id, activateReload]);
 
   useEffect(() => {
     if (deadline === null) setDeadline(new Date());
@@ -373,6 +374,7 @@ export default function DisciplinePage({ params }: { params: Usable<{ id: string
       });
       if (!res.ok) throw new Error('Ошибка сохранения структуры');
       setEditMode(false);
+      setActivateReload(true);
     } catch {
       alert('Ошибка при сохранении структуры');
     }

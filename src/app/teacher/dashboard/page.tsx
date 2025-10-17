@@ -446,7 +446,7 @@ export default function TeacherDashboard() {
         username: username,
       };
     });
-    return { group_name: studentsArr[0][3] + new Date().getFullYear().toString(), students: students };
+    return { group_name: studentsArr[0][3] + '-' + new Date().getFullYear().toString(), students: students };
   }
 
   const handleCreateGroup = async () => {
@@ -806,7 +806,7 @@ export default function TeacherDashboard() {
             spacing={3}
           >
             <Grid sx={{ width: '100%' }}>
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2, gap: '30px' }}>
                 <Button
                   variant="contained"
                   startIcon={<Add />}

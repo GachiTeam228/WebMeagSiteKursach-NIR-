@@ -29,6 +29,7 @@ import { useState, useEffect, use, Usable } from 'react';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { ru } from 'date-fns/locale';
+import ImageUpload from '@/app/shared/ImageUpload/ImageUpload';
 
 // Интерфейсы для данных
 interface Option {
@@ -43,6 +44,7 @@ interface Question {
   question_type: 'single' | 'multiple';
   points: number;
   order_number: number;
+  image_url?: string | null; // Добавлено поле для изображения
   options: Option[];
 }
 
@@ -94,6 +96,7 @@ export default function EditTestPage({ params }: { params: Usable<{ id: string }
       question_type: type,
       points: 1,
       order_number: testData.questions.length,
+      image_url: null, // Добавлено
       options: [
         { id: -Date.now() - 1, option_text: '', is_correct: false },
         { id: -Date.now() - 2, option_text: '', is_correct: false },
@@ -161,6 +164,15 @@ export default function EditTestPage({ params }: { params: Usable<{ id: string }
       questions: testData.questions.map((q) =>
         q.id === questionId ? { ...q, [field]: field === 'points' ? parseInt(value) || '' : value } : q
       ),
+    });
+  };
+
+  // Новая функция для обработки изменения изображения
+  const handleImageChange = (questionId: number, imageUrl: string | null) => {
+    if (!testData) return;
+    setTestData({
+      ...testData,
+      questions: testData.questions.map((q) => (q.id === questionId ? { ...q, image_url: imageUrl } : q)),
     });
   };
 
@@ -329,6 +341,21 @@ export default function EditTestPage({ params }: { params: Usable<{ id: string }
                   value={question.question_text}
                   onChange={(e) => handleQuestionChange(question.id, 'question_text', e.target.value)}
                 />
+
+                {/* Новый блок для загрузки изображения */}
+                <Box>
+                  <Typography
+                    variant="subtitle2"
+                    sx={{ mb: 1, color: 'text.secondary' }}
+                  >
+                    Изображение к вопросу (необязательно)
+                  </Typography>
+                  <ImageUpload
+                    currentImageUrl={question.image_url || undefined}
+                    onImageChange={(url) => handleImageChange(question.id, url)}
+                  />
+                </Box>
+
                 <TextField
                   label="Баллы за вопрос"
                   type="number"

@@ -5,12 +5,66 @@ import { cookies } from 'next/headers';
 
 const SECRET = process.env.JWT_SECRET;
 
+// Функция для обработки просроченных тестов
+function processExpiredTests() {
+  try {
+    const now = new Date().toISOString();
+
+    const expiredAssignments = db
+      .prepare(
+        `SELECT ta.id, ta.test_id, ta.user_id, ta.deadline
+         FROM TestAssignments ta
+         WHERE ta.deadline < ?
+         AND ta.is_completed = 0
+         AND ta.deadline IS NOT NULL`
+      )
+      .all(now) as { id: number; test_id: number; user_id: number; deadline: string }[];
+
+    if (expiredAssignments.length === 0) {
+      return { processed: 0 };
+    }
+
+    let processedCount = 0;
+
+    const transaction = db.transaction(() => {
+      for (const assignment of expiredAssignments) {
+        try {
+          const existingAttempts = db
+            .prepare('SELECT COUNT(*) as count FROM Attempts WHERE user_id = ? AND test_id = ?')
+            .get(assignment.user_id, assignment.test_id) as { count: number };
+
+          if (existingAttempts.count === 0) {
+            db.prepare(
+              `INSERT INTO Attempts (user_id, test_id, start_time, end_time, score, is_completed)
+               VALUES (?, ?, ?, ?, 0, 1)`
+            ).run(assignment.user_id, assignment.test_id, now, now);
+          }
+
+          db.prepare('UPDATE TestAssignments SET is_completed = 1 WHERE id = ?').run(assignment.id);
+          processedCount++;
+        } catch (err) {
+          console.error(`Error processing assignment ${assignment.id}:`, err);
+        }
+      }
+    });
+
+    transaction();
+
+    return { processed: processedCount };
+  } catch (error) {
+    return { processed: 0, error };
+  }
+}
+
 export async function GET() {
   if (!SECRET) {
     return NextResponse.json({ error: 'JWT_SECRET is not set' }, { status: 500 });
   }
 
   try {
+    // Обрабатываем просроченные тесты перед получением активных
+    processExpiredTests();
+
     // 1. Аутентификация
     const token = (await cookies()).get('token')?.value;
     if (!token) {
@@ -32,6 +86,9 @@ export async function GET() {
     if (!user) {
       return NextResponse.json({ error: 'User not found or inactive' }, { status: 403 });
     }
+
+    // Текущее время для фильтрации
+    const now = new Date().toISOString();
 
     let activeTests;
 
@@ -57,13 +114,14 @@ export async function GET() {
         WHERE
           s.teacher_id = ?
           AND ta.deadline IS NOT NULL
-          AND ta.deadline > CURRENT_TIMESTAMP
+          AND ta.deadline > ?
           AND t.is_active = 1
         GROUP BY t.id, t.title, s.name, t.time_limit_minutes
+        HAVING MIN(ta.deadline) > ?
         ORDER BY due ASC
       `
         )
-        .all(user.id);
+        .all(user.id, now, now);
     }
     // 4. Если студент (role_id = 1)
     else if (user.role_id === 1) {
@@ -89,13 +147,13 @@ export async function GET() {
         WHERE
           ta.user_id = ?
           AND ta.deadline IS NOT NULL
-          AND ta.deadline > CURRENT_TIMESTAMP
+          AND ta.deadline > ?
           AND t.is_active = 1
           AND ta.is_completed = 0
         ORDER BY ta.deadline ASC
       `
         )
-        .all(user.id, user.id);
+        .all(user.id, user.id, now);
     } else {
       return NextResponse.json({ error: 'Invalid user role' }, { status: 403 });
     }

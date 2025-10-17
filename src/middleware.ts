@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { jwtVerify } from 'jose'; // Используем `jose` для верификации, т.к. `jsonwebtoken` не работает в Edge Runtime
+import { jwtVerify } from 'jose';
 
 const SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 
@@ -9,7 +9,7 @@ async function verifyToken(token: string) {
     const { payload } = await jwtVerify(token, SECRET);
     return payload;
   } catch (err) {
-    return err; // Токен невалидный или истек
+    return err;
   }
 }
 

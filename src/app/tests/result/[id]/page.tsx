@@ -123,7 +123,7 @@ export default function TestResultPage({ params }: { params: Promise<{ id: strin
       <Box sx={{ mt: 4, textAlign: 'center' }}>
         <Button
           variant="contained"
-          onClick={() => router.back()}
+          onClick={() => router.push('/dashboard')}
         >
           Вернуться на главную
         </Button>
