@@ -28,7 +28,7 @@ interface TestData {
   questions: QuestionData[];
 }
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!SECRET) {
     return NextResponse.json({ error: 'JWT_SECRET is not set' }, { status: 500 });
   }

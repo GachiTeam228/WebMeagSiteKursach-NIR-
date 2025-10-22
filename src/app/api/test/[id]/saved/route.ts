@@ -5,10 +5,7 @@ import { cookies } from 'next/headers';
 
 const SECRET = process.env.JWT_SECRET;
 
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!SECRET) {
     throw new Error('JWT_SECRET env variable is not set');
   }
@@ -26,9 +23,9 @@ export async function GET(
     }
 
     // Проверяем, что пользователь — студент
-    const user = db.prepare(
-      'SELECT id, role_id FROM Users WHERE username = ? AND is_active = 1'
-    ).get(payload.username) as { id: number, role_id: number };
+    const user = db
+      .prepare('SELECT id, role_id FROM Users WHERE username = ? AND is_active = 1')
+      .get(payload.username) as { id: number; role_id: number };
 
     if (!user) {
       return NextResponse.json({ error: 'User not found or inactive' }, { status: 403 });
@@ -43,20 +40,22 @@ export async function GET(
     }
 
     // Получаем активную попытку пользователя по этому тесту
-    const attempt = db.prepare(
-      `SELECT id FROM Attempts WHERE user_id = ? AND test_id = ? AND is_completed = 0`
-    ).get(user.id, testId) as { id: number };
+    const attempt = db
+      .prepare(`SELECT id FROM Attempts WHERE user_id = ? AND test_id = ? AND is_completed = 0`)
+      .get(user.id, testId) as { id: number };
 
     if (!attempt) {
       return NextResponse.json({ error: 'No active attempt found' }, { status: 404 });
     }
 
     // Получаем все сохранённые ответы пользователя по этой попытке
-    const answers = db.prepare(
-      `SELECT question_id, answer_option_id
+    const answers = db
+      .prepare(
+        `SELECT question_id, answer_option_id
        FROM UserAnswers
        WHERE attempt_id = ?`
-    ).all(attempt.id) as { question_id: number, answer_option_id: number }[];
+      )
+      .all(attempt.id) as { question_id: number; answer_option_id: number }[];
 
     // Группируем ответы по question_id (на случай multiple)
     const grouped: Record<number, number[]> = {};

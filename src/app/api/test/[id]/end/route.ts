@@ -5,7 +5,7 @@ import { cookies } from 'next/headers';
 
 const SECRET = process.env.JWT_SECRET;
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!SECRET) {
     throw new Error('JWT_SECRET env variable is not set');
   }

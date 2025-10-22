@@ -5,7 +5,7 @@ import { cookies } from 'next/headers';
 
 const SECRET = process.env.JWT_SECRET;
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!SECRET) {
     throw new Error('JWT_SECRET env variable is not set');
   }
@@ -23,12 +23,16 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }
 
     // Проверяем, что пользователь админ
-    const user = db.prepare(`
+    const user = db
+      .prepare(
+        `
       SELECT Users.id, Roles.is_admin
       FROM Users
       LEFT JOIN Roles ON Users.role_id = Roles.id
       WHERE Users.username = ?
-    `).get(payload.username) as {id: number, is_admin: boolean};
+    `
+      )
+      .get(payload.username) as { id: number; is_admin: boolean };
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -56,9 +60,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }
 
     // Обновляем название предмета
-    db.prepare(
-      'UPDATE Subjects SET name = ? WHERE id = ?'
-    ).run(name.trim(), subjectId);
+    db.prepare('UPDATE Subjects SET name = ? WHERE id = ?').run(name.trim(), subjectId);
 
     return NextResponse.json({ message: 'Subject updated', subject_id: subjectId, name: name.trim() });
   } catch (error) {
