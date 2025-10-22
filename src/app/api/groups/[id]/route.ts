@@ -5,10 +5,7 @@ import { cookies } from 'next/headers';
 
 const SECRET = process.env.JWT_SECRET;
 
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!SECRET) {
     throw new Error('no jwt');
   }
@@ -27,9 +24,7 @@ export async function GET(
     }
 
     // Проверяем, что пользователь существует и активен по username
-    const user = db.prepare(
-      'SELECT id FROM Users WHERE username = ? AND is_active = 1'
-    ).get(payload.username);
+    const user = db.prepare('SELECT id FROM Users WHERE username = ? AND is_active = 1').get(payload.username);
 
     if (!user) {
       return NextResponse.json({ error: 'User not found or inactive' }, { status: 403 });
@@ -41,18 +36,20 @@ export async function GET(
     }
 
     // Получаем группу
-    const group = db.prepare(
-      'SELECT id, name, created_at FROM Groups WHERE id = ?'
-    ).get(groupId) as { id: number, name: string, created_at: string };
+    const group = db.prepare('SELECT id, name, created_at FROM Groups WHERE id = ?').get(groupId) as {
+      id: number;
+      name: string;
+      created_at: string;
+    };
 
     if (!group) {
       return NextResponse.json({ error: 'Group not found' }, { status: 404 });
     }
 
     // Получаем студентов группы
-    const students = db.prepare(
-      'SELECT id, username, first_name, last_name FROM Users WHERE group_id = ?'
-    ).all(groupId);
+    const students = db
+      .prepare('SELECT id, username, first_name, last_name FROM Users WHERE group_id = ?')
+      .all(groupId);
 
     return NextResponse.json({
       id: group.id,

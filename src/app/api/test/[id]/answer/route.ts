@@ -5,10 +5,7 @@ import { cookies } from 'next/headers';
 
 const SECRET = process.env.JWT_SECRET;
 
-export async function POST(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!SECRET) {
     throw new Error('JWT_SECRET env variable is not set');
   }
@@ -25,9 +22,9 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    const user = db.prepare(
-      'SELECT id, role_id FROM Users WHERE username = ? AND is_active = 1'
-    ).get(payload.username) as {id: number, role_id: number}
+    const user = db
+      .prepare('SELECT id, role_id FROM Users WHERE username = ? AND is_active = 1')
+      .get(payload.username) as { id: number; role_id: number };
 
     if (!user) {
       return NextResponse.json({ error: 'User not found or inactive' }, { status: 403 });
@@ -48,18 +45,18 @@ export async function POST(
     }
 
     // Получаем активную попытку
-    const attempt = db.prepare(
-      `SELECT id, is_completed FROM Attempts WHERE user_id = ? AND test_id = ? AND is_completed = 0`
-    ).get(user.id, testId) as {id: number, is_completed: boolean}
+    const attempt = db
+      .prepare(`SELECT id, is_completed FROM Attempts WHERE user_id = ? AND test_id = ? AND is_completed = 0`)
+      .get(user.id, testId) as { id: number; is_completed: boolean };
 
     if (!attempt) {
       return NextResponse.json({ error: 'No active attempt found' }, { status: 404 });
     }
 
     // Узнаём тип вопроса
-    const question = db.prepare(
-      `SELECT question_type FROM Questions WHERE id = ?`
-    ).get(question_id) as {question_type: string};
+    const question = db.prepare(`SELECT question_type FROM Questions WHERE id = ?`).get(question_id) as {
+      question_type: string;
+    };
 
     if (!question) {
       return NextResponse.json({ error: 'Question not found' }, { status: 404 });
@@ -68,14 +65,10 @@ export async function POST(
     // MULTIPLE
     if (question.question_type === 'multiple') {
       // answer_option_id должен быть массивом
-      const answerIds: number[] = Array.isArray(answer_option_id)
-        ? answer_option_id
-        : [answer_option_id];
+      const answerIds: number[] = Array.isArray(answer_option_id) ? answer_option_id : [answer_option_id];
 
       // Удаляем старые ответы пользователя на этот вопрос в этой попытке
-      db.prepare(
-        `DELETE FROM UserAnswers WHERE attempt_id = ? AND question_id = ?`
-      ).run(attempt.id, question_id);
+      db.prepare(`DELETE FROM UserAnswers WHERE attempt_id = ? AND question_id = ?`).run(attempt.id, question_id);
 
       // Вставляем новые ответы
       const insert = db.prepare(
@@ -85,9 +78,9 @@ export async function POST(
 
       for (const optionId of answerIds) {
         // Проверяем правильность каждого варианта
-        const option = db.prepare(
-          `SELECT is_correct FROM AnswerOptions WHERE id = ? AND question_id = ?`
-        ).get(optionId, question_id) as {is_correct: boolean};
+        const option = db
+          .prepare(`SELECT is_correct FROM AnswerOptions WHERE id = ? AND question_id = ?`)
+          .get(optionId, question_id) as { is_correct: boolean };
 
         if (!option) continue;
 
@@ -99,9 +92,9 @@ export async function POST(
 
     // SINGLE (или text)
     // Проверяем правильность ответа
-    const option = db.prepare(
-      `SELECT is_correct FROM AnswerOptions WHERE id = ? AND question_id = ?`
-    ).get(answer_option_id, question_id) as {is_correct: boolean};
+    const option = db
+      .prepare(`SELECT is_correct FROM AnswerOptions WHERE id = ? AND question_id = ?`)
+      .get(answer_option_id, question_id) as { is_correct: boolean };
 
     if (!option) {
       return NextResponse.json({ error: 'Answer option not found' }, { status: 404 });
@@ -110,9 +103,9 @@ export async function POST(
     const is_correct = option.is_correct ? 1 : 0;
 
     // Проверяем, существует ли уже ответ пользователя на этот вопрос в этой попытке
-    const existingAnswer = db.prepare(
-      `SELECT id FROM UserAnswers WHERE attempt_id = ? AND question_id = ?`
-    ).get(attempt.id, question_id) as {id: number};
+    const existingAnswer = db
+      .prepare(`SELECT id FROM UserAnswers WHERE attempt_id = ? AND question_id = ?`)
+      .get(attempt.id, question_id) as { id: number };
 
     if (existingAnswer) {
       if (attempt.is_completed) {
@@ -142,4 +135,4 @@ const body = `
     question_id: number,
     answer_option_id: number,
 }
-`
+`;

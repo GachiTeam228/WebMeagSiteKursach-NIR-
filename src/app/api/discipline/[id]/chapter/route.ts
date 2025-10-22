@@ -5,10 +5,7 @@ import { cookies } from 'next/headers';
 
 const SECRET = process.env.JWT_SECRET;
 
-export async function POST(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!SECRET) throw new Error('JWT_SECRET env variable is not set');
   try {
     const token = (await cookies()).get('token')?.value;
@@ -24,9 +21,9 @@ export async function POST(
     }
 
     // Проверяем, что пользователь — преподаватель (например, role_id === 2)
-    const user = db.prepare(
-      'SELECT id, role_id FROM Users WHERE username = ? AND is_active = 1'
-    ).get(payload.username) as { id: number, role_id: number };
+    const user = db
+      .prepare('SELECT id, role_id FROM Users WHERE username = ? AND is_active = 1')
+      .get(payload.username) as { id: number; role_id: number };
 
     if (!user) {
       return NextResponse.json({ error: 'User not found or inactive' }, { status: 403 });
@@ -48,9 +45,9 @@ export async function POST(
     }
 
     // Вставляем новую главу
-    const result = db.prepare(
-      'INSERT INTO Chapters (discipline_id, name) VALUES (?, ?)'
-    ).run(disciplineId, title.trim());
+    const result = db
+      .prepare('INSERT INTO Chapters (discipline_id, name) VALUES (?, ?)')
+      .run(disciplineId, title.trim());
 
     return NextResponse.json({
       message: 'Chapter created',
