@@ -10,6 +10,7 @@ interface AnswerOptionData {
   id?: number;
   option_text: string;
   is_correct: boolean;
+  image_url?: string;
 }
 
 interface QuestionData {
@@ -50,7 +51,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }
 
     // Получение основной информации о тесте
-    const test = db
+    const test: any = db
       .prepare(
         `
       SELECT
@@ -87,7 +88,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     if (questionIds.length > 0) {
       const optionsQuery = `
-        SELECT id, question_id, option_text, is_correct
+        SELECT id, question_id, option_text, is_correct, image_url
         FROM AnswerOptions
         WHERE question_id IN (${questionIds.map(() => '?').join(',')})
       `;
@@ -109,6 +110,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
             id: opt.id,
             question_id: opt.question_id,
             option_text: opt.option_text,
+            image_url: opt.image_url,
           };
           // Добавляем is_correct только для преподавателя
           if (isTeacher) {
@@ -176,8 +178,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         `);
 
         const insertOptionStmt = db.prepare(`
-          INSERT INTO AnswerOptions (question_id, option_text, is_correct)
-          VALUES (?, ?, ?)
+          INSERT INTO AnswerOptions (question_id, option_text, is_correct, image_url)
+          VALUES (?, ?, ?, ?)
         `);
 
         for (const q of questions) {
@@ -193,7 +195,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
           if (q.options && q.options.length > 0) {
             for (const opt of q.options) {
-              insertOptionStmt.run(newQuestionId, opt.option_text, opt.is_correct ? 1 : 0);
+              insertOptionStmt.run(newQuestionId, opt.option_text, opt.is_correct ? 1 : 0, opt.image_url);
             }
           }
         }

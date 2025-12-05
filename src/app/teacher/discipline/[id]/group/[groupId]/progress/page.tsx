@@ -227,8 +227,8 @@ export default function GroupProgressPage({ params }: { params: Promise<{ id: st
                 <TableRow>
                   <TableCell
                     sx={{
-                      position: 'sticky',
-                      left: 0,
+                      // position: 'sticky',
+                      // left: 0,
                       bgcolor: 'background.paper',
                       zIndex: 3,
                       fontWeight: 'bold',
@@ -266,8 +266,8 @@ export default function GroupProgressPage({ params }: { params: Promise<{ id: st
                   <TableCell
                     align="center"
                     sx={{
-                      position: 'sticky',
-                      right: 0,
+                      // position: 'sticky',
+                      // right: 0,
                       bgcolor: 'background.paper',
                       zIndex: 3,
                       fontWeight: 'bold',
@@ -279,15 +279,15 @@ export default function GroupProgressPage({ params }: { params: Promise<{ id: st
                 </TableRow>
               </TableHead>
               <TableBody>
-                {data.students.map((student) => (
+                {data.students.map((student, idx) => (
                   <TableRow
                     key={student.studentId}
                     hover
                   >
                     <TableCell
                       sx={{
-                        position: 'sticky',
-                        left: 0,
+                        // position: 'sticky',
+                        // left: 0,
                         bgcolor: 'background.paper',
                         zIndex: 2,
                       }}
@@ -296,7 +296,7 @@ export default function GroupProgressPage({ params }: { params: Promise<{ id: st
                         variant="body2"
                         sx={{ fontWeight: 500 }}
                       >
-                        {student.studentName}
+                        {`${idx + 1}. ` + student.studentName}
                       </Typography>
                       <Typography
                         variant="caption"
@@ -333,8 +333,8 @@ export default function GroupProgressPage({ params }: { params: Promise<{ id: st
                     <TableCell
                       align="center"
                       sx={{
-                        position: 'sticky',
-                        right: 0,
+                        // position: 'sticky',
+                        // right: 0,
                         bgcolor: 'background.paper',
                         zIndex: 2,
                         fontWeight: 'bold',

@@ -30,7 +30,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'User not found or inactive' }, { status: 403 });
     }
 
-    const groupId = parseInt(params.id, 10);
+    const groupId = parseInt((await params).id, 10);
     if (isNaN(groupId)) {
       return NextResponse.json({ error: 'Invalid group id' }, { status: 400 });
     }

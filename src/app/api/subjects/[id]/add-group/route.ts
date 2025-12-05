@@ -41,7 +41,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'Forbidden: not admin' }, { status: 403 });
     }
 
-    const subjectId = parseInt(params.id, 10);
+    const subjectId = parseInt((await params).id, 10);
     if (isNaN(subjectId)) {
       return NextResponse.json({ error: 'Invalid subject id' }, { status: 400 });
     }

@@ -45,7 +45,7 @@ import {
   Quiz,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect, use, Usable } from 'react';
+import { useState, useEffect, use } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { differenceInHours, differenceInMinutes } from 'date-fns';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -88,7 +88,7 @@ type DisciplineType = {
   chapters: Chapter[];
 };
 
-export default function DisciplinePage({ params }: { params: Usable<{ id: string }> }) {
+export default function DisciplinePage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { id } = use<{ id: string }>(params);
   const [tabValue, setTabValue] = useState(0);
@@ -339,7 +339,7 @@ export default function DisciplinePage({ params }: { params: Usable<{ id: string
       setDiscipline({ ...discipline, chapters: resetChapters });
     } catch (error) {
       console.error('Error assigning tests:', error);
-      alert('Произошла критическая ошибка при выдаче тестов');
+      alert('Произошла ошибка при выдаче тестов');
     }
   };
 
@@ -501,6 +501,7 @@ export default function DisciplinePage({ params }: { params: Usable<{ id: string
               <Stack
                 direction="row"
                 spacing={2}
+                sx={{ '@media (max-width: 768px)': { display: 'flex', flexDirection: 'column' } }}
               >
                 <Button
                   startIcon={<Close />}
@@ -517,7 +518,7 @@ export default function DisciplinePage({ params }: { params: Usable<{ id: string
                 </Button>
               </Stack>
             ) : (
-              <>
+              <Box sx={{ '@media (max-width: 768px)': { display: 'flex', flexDirection: 'column-reverse' } }}>
                 <Button
                   startIcon={<Edit />}
                   onClick={() => setEditMode(true)}
@@ -533,7 +534,7 @@ export default function DisciplinePage({ params }: { params: Usable<{ id: string
                 >
                   Выдать тесты
                 </Button>
-              </>
+              </Box>
             ))}
         </Box>
 
@@ -787,7 +788,7 @@ export default function DisciplinePage({ params }: { params: Usable<{ id: string
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                 <Typography
                   variant="h6"
-                  sx={{ fontWeight: 600 }}
+                  sx={{ fontWeight: 600, '@media (max-width: 768px)': { fontSize: '16px' } }}
                 >
                   Группы на курсе
                 </Typography>
@@ -809,7 +810,10 @@ export default function DisciplinePage({ params }: { params: Usable<{ id: string
                       elevation={2}
                       sx={{ mb: 2 }}
                     >
-                      <ListItemButton onClick={() => toggleGroup(group.id)}>
+                      <ListItemButton
+                        onClick={() => toggleGroup(group.id)}
+                        sx={{ '@media (max-width: 768px)': { overflowX: 'scroll' } }}
+                      >
                         {isTeacher && (
                           <Checkbox
                             edge="start"
@@ -819,17 +823,20 @@ export default function DisciplinePage({ params }: { params: Usable<{ id: string
                             onClick={(e) => e.stopPropagation()}
                           />
                         )}
-                        <Groups sx={{ mr: 2, color: 'text.secondary' }} />
+                        {window.innerWidth > 768 && <Groups sx={{ mr: 2, color: 'text.secondary' }} />}
                         <ListItemText
                           primary={group.name}
                           secondary={`${group.students.length} студентов`}
                         />
                         <Button
                           variant="outlined"
-                          style={{ marginRight: '30px' }}
                           onClick={(e) => {
                             e.stopPropagation();
                             router.push(`/teacher/discipline/${discipline.id}/group/${group.id}/progress`);
+                          }}
+                          sx={{
+                            mr: '30px',
+                            '@media (max-width: 768px)': { whiteSpace: 'break-spaces', mr: 0, maxWidth: 'min-content' },
                           }}
                         >
                           Перейти к успеваемости группы
