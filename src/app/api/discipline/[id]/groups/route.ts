@@ -25,7 +25,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     // 2. Валидация входных данных
-    const disciplineId = Number(params.id);
+    const disciplineId = Number((await params).id);
     if (isNaN(disciplineId)) {
       return NextResponse.json({ error: 'Invalid discipline ID' }, { status: 400 });
     }

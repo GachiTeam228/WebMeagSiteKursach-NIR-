@@ -18,14 +18,13 @@ import {
   Stack,
   Radio,
   Checkbox,
-  Paper,
   CircularProgress,
   Snackbar,
   Alert,
 } from '@mui/material';
 import { Add, Close, Delete, RadioButtonChecked, CheckBox, ArrowBack, Quiz } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect, use, Usable } from 'react';
+import { useState, useEffect, use } from 'react';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { ru } from 'date-fns/locale';
@@ -36,6 +35,7 @@ interface Option {
   id: number;
   option_text: string;
   is_correct: boolean;
+  image_url?: string | null;
 }
 
 interface Question {
@@ -57,7 +57,7 @@ interface TestData {
   questions: Question[];
 }
 
-export default function EditTestPage({ params }: { params: Usable<{ id: string }> }) {
+export default function EditTestPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: testId } = use(params);
   const router = useRouter();
 
@@ -135,7 +135,7 @@ export default function EditTestPage({ params }: { params: Usable<{ id: string }
   const handleOptionChange = (
     questionId: number,
     optionId: number,
-    field: 'option_text' | 'is_correct',
+    field: 'option_text' | 'is_correct' | 'image_url',
     value: any
   ) => {
     if (!testData) return;
@@ -370,11 +370,30 @@ export default function EditTestPage({ params }: { params: Usable<{ id: string }
                   Варианты ответов:
                 </Typography>
                 {question.options.map((option) => (
-                  <Paper
+                  <Box
                     key={option.id}
-                    elevation={0}
-                    sx={{ p: 1, display: 'flex', alignItems: 'center', gap: 2 }}
+                    sx={{ display: 'flex', alignItems: 'center', gap: 2 }}
                   >
+                    <TextField
+                      label="Текст варианта"
+                      value={option.option_text}
+                      onChange={(e) => handleOptionChange(question.id, option.id, 'option_text', e.target.value)}
+                      sx={{ flex: 1 }}
+                    />
+                    {/* Компонент загрузки изображения */}
+                    <ImageUpload
+                      currentImageUrl={option.image_url || undefined}
+                      onImageChange={(url) => handleOptionChange(question.id, option.id, 'image_url', url)}
+                      uploadType="answerOption"
+                    />
+                    {/* Отображение картинки, если она есть */}
+                    {/* {option.image_url && (
+                      <img
+                        src={option.image_url}
+                        alt="Вариант"
+                        style={{ maxHeight: 60, marginLeft: 8 }}
+                      />
+                    )} */}
                     {question.question_type === 'single' ? (
                       <Radio
                         checked={option.is_correct}
@@ -386,13 +405,6 @@ export default function EditTestPage({ params }: { params: Usable<{ id: string }
                         onChange={(e) => handleOptionChange(question.id, option.id, 'is_correct', e.target.checked)}
                       />
                     )}
-                    <TextField
-                      fullWidth
-                      variant="outlined"
-                      size="small"
-                      value={option.option_text}
-                      onChange={(e) => handleOptionChange(question.id, option.id, 'option_text', e.target.value)}
-                    />
                     {question.options.length > 2 && (
                       <IconButton
                         onClick={() => removeOption(question.id, option.id)}
@@ -401,7 +413,7 @@ export default function EditTestPage({ params }: { params: Usable<{ id: string }
                         <Delete fontSize="small" />
                       </IconButton>
                     )}
-                  </Paper>
+                  </Box>
                 ))}
                 <Button
                   startIcon={<Add />}

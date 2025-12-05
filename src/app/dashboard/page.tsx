@@ -263,7 +263,7 @@ export default function StudentDashboard() {
   return (
     <Container
       maxWidth="xl"
-      sx={{ py: 4 }}
+      sx={{ py: 4, '@media (max-width: 768px)': { mt: '100px' } }}
     >
       {/* Профиль пользователя */}
       <UserHeader
@@ -372,6 +372,7 @@ export default function StudentDashboard() {
                             display: 'flex',
                             alignItems: 'center',
                             gap: 2,
+                            '@media (max-width: 768px)': { flexDirection: 'column', alignItems: 'unset' },
                           }}
                         >
                           <Chip

@@ -62,7 +62,14 @@ export default function TestResultPage({ params }: { params: Promise<{ id: strin
   return (
     <Container
       maxWidth="md"
-      sx={{ py: 6 }}
+      sx={{
+        py: 6,
+        height: '100dvh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignContent: 'center',
+        justifyContent: 'center',
+      }}
     >
       <Card
         elevation={3}
@@ -89,36 +96,6 @@ export default function TestResultPage({ params }: { params: Promise<{ id: strin
           </Box>
         </CardContent>
       </Card>
-
-      <Typography
-        variant="h5"
-        sx={{ mb: 2 }}
-      >
-        Вопросы:
-      </Typography>
-      {result.questions.map((q: any, idx: number) => (
-        <Card
-          key={idx}
-          sx={{ mb: 2 }}
-        >
-          <CardContent>
-            <Typography
-              variant="subtitle1"
-              sx={{ mb: 1 }}
-            >
-              {idx + 1}. {q.question_text}
-            </Typography>
-            <Typography color={q.is_correct ? 'success.main' : 'error.main'}>
-              Ваш ответ: {Array.isArray(q.user_answers) ? q.user_answers.join(', ') : q.user_answers}
-            </Typography>
-            {!q.is_correct && (
-              <Typography color="text.secondary">
-                Правильный ответ: {Array.isArray(q.correct_answers) ? q.correct_answers.join(', ') : q.correct_answers}
-              </Typography>
-            )}
-          </CardContent>
-        </Card>
-      ))}
 
       <Box sx={{ mt: 4, textAlign: 'center' }}>
         <Button

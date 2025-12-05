@@ -18,7 +18,7 @@ import {
 } from '@mui/material';
 import { ArrowBack, TimerOutlined, CheckCircle } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect, use, useCallback, useRef, Usable } from 'react';
+import { useState, useEffect, use, useCallback, useRef } from 'react';
 
 // --- ИНТЕРФЕЙСЫ ДЛЯ ТИПИЗАЦИИ ---
 interface Option {
@@ -40,7 +40,7 @@ interface TestData {
   questions: Question[];
 }
 
-export default function TestPage({ params }: { params: Usable<{ id: string }> }) {
+export default function TestPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
   const [testData, setTestData] = useState<TestData | null>(null);
@@ -421,7 +421,18 @@ export default function TestPage({ params }: { params: Usable<{ id: string }> })
                   key={option.id}
                   value={option.id}
                   control={<Radio />}
-                  label={option.option_text}
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <span>{option.option_text}</span>
+                      {option.image_url && (
+                        <img
+                          src={option.image_url}
+                          alt="Вариант"
+                          style={{ maxHeight: 60 }}
+                        />
+                      )}
+                    </Box>
+                  }
                   sx={{ mb: 1 }}
                   disabled={isFinishing}
                 />
@@ -455,7 +466,18 @@ export default function TestPage({ params }: { params: Usable<{ id: string }> })
                       disabled={isFinishing}
                     />
                   }
-                  label={option.option_text}
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      {option.image_url && (
+                        <img
+                          src={option.image_url}
+                          alt="Вариант"
+                          style={{ maxHeight: 60 }}
+                        />
+                      )}
+                      <span>{option.option_text}</span>
+                    </Box>
+                  }
                   sx={{ mb: 1, display: 'flex' }}
                 />
               ))}

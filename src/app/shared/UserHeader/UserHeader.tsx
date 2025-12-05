@@ -30,7 +30,15 @@ export default function UserHeader({ me, meLoading, onLogout, onChangePassword, 
   };
 
   return (
-    <Box sx={{ position: 'fixed', right: 32, top: 32, zIndex: 1000 }}>
+    <Box
+      sx={{
+        position: 'fixed',
+        right: 32,
+        top: 32,
+        zIndex: 1000,
+        '@media (max-width: 768px)': { width: '100dvw', height: '80px', top: 0, right: 0 },
+      }}
+    >
       <Card
         variant="outlined"
         onClick={handleUserMenuOpen}

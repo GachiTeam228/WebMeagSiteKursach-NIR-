@@ -9,9 +9,14 @@ import { CloudUpload, Delete } from '@mui/icons-material';
 interface ImageUploadProps {
   currentImageUrl?: string;
   onImageChange: (url: string | null) => void;
+  uploadType?: 'question' | 'answerOption'; // Новый проп
 }
 
-export default function ImageUpload({ currentImageUrl, onImageChange }: ImageUploadProps) {
+export default function ImageUpload({
+  currentImageUrl,
+  onImageChange,
+  uploadType = 'question', // По умолчанию для вопроса
+}: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(currentImageUrl || null);
@@ -37,9 +42,12 @@ export default function ImageUpload({ currentImageUrl, onImageChange }: ImageUpl
 
     try {
       const formData = new FormData();
-      formData.append('image', file);
+      // Для совместимости с обеими ручками используем ключ 'file'
+      formData.append('file', file);
 
-      const response = await fetch('/api/upload/question-image', {
+      const apiUrl = uploadType === 'answerOption' ? '/api/upload/answer-option-image' : '/api/upload/question-image';
+
+      const response = await fetch(apiUrl, {
         method: 'POST',
         body: formData,
       });
@@ -64,7 +72,9 @@ export default function ImageUpload({ currentImageUrl, onImageChange }: ImageUpl
 
     try {
       const filename = preview.split('/').pop();
-      await fetch(`/api/upload/question-image?filename=${filename}`, {
+      const apiUrl = uploadType === 'answerOption' ? '/api/upload/answer-option-image' : '/api/upload/question-image';
+
+      await fetch(`${apiUrl}?filename=${filename}`, {
         method: 'DELETE',
       });
 
@@ -94,8 +104,8 @@ export default function ImageUpload({ currentImageUrl, onImageChange }: ImageUpl
             src={preview}
             alt="Preview"
             sx={{
-              maxWidth: '100%',
-              maxHeight: 300,
+              maxWidth: uploadType === 'question' ? '100%' : '100px',
+              maxHeight: uploadType === 'question' ? '300px' : '100px',
               borderRadius: 1,
               border: '1px solid',
               borderColor: 'divider',

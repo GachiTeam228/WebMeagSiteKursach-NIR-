@@ -52,3 +52,10 @@ input:-webkit-autofill:active {
     color-scheme: dark;
   }
 }
+
+@media (max-width: 768px) {
+  body {
+    width: 100dvw;
+    font-size: 14px;
+  }
+}

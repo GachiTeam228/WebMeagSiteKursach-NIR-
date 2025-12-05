@@ -558,7 +558,7 @@ export default function TeacherDashboard() {
   return (
     <Container
       maxWidth="xl"
-      sx={{ py: 4, display: 'flex' }}
+      sx={{ py: 4, display: 'flex', '@media (max-width: 768px)': { mt: '100px' } }}
     >
       {/* Профиль пользователя */}
       <UserHeader

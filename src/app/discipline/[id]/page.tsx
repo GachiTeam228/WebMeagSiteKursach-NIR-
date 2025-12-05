@@ -344,7 +344,10 @@ export default function StudentDisciplinePage({ params }: { params: Promise<{ id
                       >
                         {chapter.tests.map((test) => (
                           <ListItem key={test.id}>
-                            <ListItemButton onClick={() => handleTestClick(test)}>
+                            <ListItemButton
+                              onClick={() => handleTestClick(test)}
+                              sx={test.status === 'not-assigned' ? { '&:hover': { backgroundColor: 'white' } } : {}}
+                            >
                               <Avatar
                                 sx={{
                                   bgcolor: 'background.default',

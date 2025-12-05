@@ -48,7 +48,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     // 2. Валидация ID теста и данных
-    const testId = Number(params.id);
+    const testId = Number((await params).id);
     if (isNaN(testId)) {
       return NextResponse.json({ error: 'Invalid test ID' }, { status: 400 });
     }
