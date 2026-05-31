@@ -21,10 +21,22 @@ import {
   Snackbar,
   Alert,
   Tooltip,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  Button,
 } from '@mui/material';
-import { ArrowBack, CheckCircle, HourglassEmpty, Warning, Block } from '@mui/icons-material';
+import {
+  ArrowBack,
+  CheckCircle,
+  HourglassEmpty,
+  Warning,
+  Block,
+  AutoGraph, // Иконка для кнопки СППР
+} from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, use } from 'react';
+import StudentAnalytics from '../../../../../components/StudentAnalytics';
 
 type TestResult = {
   testId: number;
@@ -78,6 +90,9 @@ export default function GroupProgressPage({ params }: { params: Promise<{ id: st
     message: '',
     severity: 'error' as 'error' | 'success',
   });
+
+  // Состояние для открытия модального окна аналитики
+  const [selectedStudentForAnalytics, setSelectedStudentForAnalytics] = useState<StudentProgress | null>(null);
 
   useEffect(() => {
     const fetchProgress = async () => {
@@ -227,8 +242,6 @@ export default function GroupProgressPage({ params }: { params: Promise<{ id: st
                 <TableRow>
                   <TableCell
                     sx={{
-                      // position: 'sticky',
-                      // left: 0,
                       bgcolor: 'background.paper',
                       zIndex: 3,
                       fontWeight: 'bold',
@@ -256,7 +269,7 @@ export default function GroupProgressPage({ params }: { params: Promise<{ id: st
                               variant="caption"
                               color="text.secondary"
                             >
-                              (/{test.maxScore})
+                              ({test.maxScore})
                             </Typography>
                           </Box>
                         </Tooltip>
@@ -266,8 +279,6 @@ export default function GroupProgressPage({ params }: { params: Promise<{ id: st
                   <TableCell
                     align="center"
                     sx={{
-                      // position: 'sticky',
-                      // right: 0,
                       bgcolor: 'background.paper',
                       zIndex: 3,
                       fontWeight: 'bold',
@@ -286,25 +297,42 @@ export default function GroupProgressPage({ params }: { params: Promise<{ id: st
                   >
                     <TableCell
                       sx={{
-                        // position: 'sticky',
-                        // left: 0,
                         bgcolor: 'background.paper',
                         zIndex: 2,
                       }}
                     >
-                      <Typography
-                        variant="body2"
-                        sx={{ fontWeight: 500 }}
+                      {/* Flex-контейнер для имени и кнопки аналитики */}
+                      <Box
+                        display="flex"
+                        justifyContent="space-between"
+                        alignItems="center"
                       >
-                        {`${idx + 1}. ` + student.studentName}
-                      </Typography>
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                      >
-                        {student.email}
-                      </Typography>
+                        <Box>
+                          <Typography
+                            variant="body2"
+                            sx={{ fontWeight: 500 }}
+                          >
+                            {`${idx + 1}. ` + student.studentName}
+                          </Typography>
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                          >
+                            {student.email}
+                          </Typography>
+                        </Box>
+                        <Tooltip title="Открыть СППР-профиль">
+                          <IconButton
+                            size="small"
+                            color="primary"
+                            onClick={() => setSelectedStudentForAnalytics(student)}
+                          >
+                            <AutoGraph fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
                     </TableCell>
+
                     {student.testResults.map((result) => (
                       <TableCell
                         key={result.testId}
@@ -330,11 +358,10 @@ export default function GroupProgressPage({ params }: { params: Promise<{ id: st
                         )}
                       </TableCell>
                     ))}
+
                     <TableCell
                       align="center"
                       sx={{
-                        // position: 'sticky',
-                        // right: 0,
                         bgcolor: 'background.paper',
                         zIndex: 2,
                         fontWeight: 'bold',
@@ -393,6 +420,28 @@ export default function GroupProgressPage({ params }: { params: Promise<{ id: st
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* Модальное окно с ИИ-Аналитикой */}
+      <Dialog
+        open={!!selectedStudentForAnalytics}
+        onClose={() => setSelectedStudentForAnalytics(null)}
+        maxWidth="lg"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          Детальный профиль студента
+          <Button onClick={() => setSelectedStudentForAnalytics(null)}>Закрыть</Button>
+        </DialogTitle>
+        <DialogContent dividers>
+          {selectedStudentForAnalytics && (
+            <StudentAnalytics
+              studentId={selectedStudentForAnalytics.studentId}
+              studentName={selectedStudentForAnalytics.studentName}
+              disciplineId={parseInt(id)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </Container>
   );
 }

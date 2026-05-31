@@ -38,6 +38,6 @@ export async function GET() {
 
         return NextResponse.json({ isAdmin: !!user.is_admin });
     } catch (error) {
-        return NextResponse.json({ isAdmin: false, error: 'Server error' }, { status: 500 });
+        return NextResponse.json({ isAdmin: false, error: 'Server error ' + error }, { status: 500 });
     }
 }

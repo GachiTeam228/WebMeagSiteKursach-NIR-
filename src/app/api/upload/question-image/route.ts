@@ -41,14 +41,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User not found or inactive' }, { status: 403 });
     }
 
-    // Только преподаватели (role_id = 2) могут загружать изображения
+    // Только преподаватели (role_id = 2) могут загружать изображения вопросов
     if (user.role_id !== 2) {
       return NextResponse.json({ error: 'Only teachers can upload question images' }, { status: 403 });
     }
 
     // 3. Получаем данные формы
     const formData = await request.formData();
-    const file = formData.get('image') as File;
+    const file = formData.get('file') as File;
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
     const buffer = Buffer.from(bytes);
     await writeFile(filepath, buffer);
 
-    console.log(`Image uploaded by teacher ${user.id}: ${filename}`);
+    console.log(`Question image uploaded by teacher ${user.id}: ${filename}`);
 
     // 8. Возвращаем URL изображения
     const imageUrl = `/uploads/questions/${filename}`;
@@ -98,6 +98,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Failed to upload image' }, { status: 500 });
   }
 }
+
+
 
 // Удаление изображения (тоже только для преподавателей)
 export async function DELETE(request: Request) {

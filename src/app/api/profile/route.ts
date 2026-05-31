@@ -34,8 +34,10 @@ export async function GET() {
     let group_name = null;
     try{
       const group = db.prepare('SELECT name FROM Groups WHERE id = ?').get(user.group_id) as {name: string};
-      group_name = group !== null ? group.name : user.group_id;
-    } catch (err) {}
+      group_name = !!group ? group.name : user.group_id;
+    } catch (err) {
+      console.error('Ошибка профиля:', err)
+    }
 
     // Возвращаем профиль с group_name вместо group_id
     return NextResponse.json({

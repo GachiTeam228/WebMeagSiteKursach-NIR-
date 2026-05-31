@@ -21,6 +21,7 @@ interface QuestionData {
   order_number: number;
   image_url?: string | null; // Добавлено
   options: AnswerOptionData[];
+  tags?: string[];
 }
 
 interface TestData {
@@ -85,6 +86,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     const questionIds = questions.map((q: any) => q.id);
     let options: any[] = [];
+    const questionTagsMap: Record<number, string[]> = {};
 
     if (questionIds.length > 0) {
       const optionsQuery = `
@@ -93,7 +95,24 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         WHERE question_id IN (${questionIds.map(() => '?').join(',')})
       `;
       options = db.prepare(optionsQuery).all(...questionIds);
+
+      const tagsQuery = `
+        SELECT qt.question_id, t.name
+        FROM Question_Tags qt
+        JOIN Tags t ON qt.tag_id = t.id
+        WHERE qt.question_id IN (${questionIds.map(() => '?').join(',')})
+      `;
+      const questionTagRows = db.prepare(tagsQuery).all(...questionIds) as Array<{
+        question_id: number;
+        name: string;
+      }>;
+      questionTagRows.forEach((row) => {
+        if (!questionTagsMap[row.question_id]) questionTagsMap[row.question_id] = [];
+        questionTagsMap[row.question_id].push(row.name);
+      });
     }
+
+    const allTags = db.prepare(`SELECT name FROM Tags ORDER BY name`).all() as Array<{ name: string }>;
 
     // Сборка финального объекта с учетом роли
     const questionsWithOptions = questions.map((q: any) => ({
@@ -103,6 +122,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       points: q.points,
       order_number: q.order_number,
       image_url: q.image_url, // Добавлено
+      tags: questionTagsMap[q.id] || [],
       options: options
         .filter((opt) => opt.question_id === q.id)
         .map((opt) => {
@@ -120,7 +140,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         }),
     }));
 
-    return NextResponse.json({ ...test, questions: questionsWithOptions });
+    return NextResponse.json({ ...test, questions: questionsWithOptions, all_tags: allTags.map((row) => row.name) });
   } catch (error) {
     if (error instanceof jwt.JsonWebTokenError) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
@@ -159,6 +179,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'Invalid request body format' }, { status: 400 });
     }
 
+    const insertTagStmt = db.prepare('INSERT OR IGNORE INTO Tags (name) VALUES (?)');
+    const selectTagStmt = db.prepare('SELECT id FROM Tags WHERE name = ?');
+    const insertQuestionTagStmt = db.prepare(
+      'INSERT OR IGNORE INTO Question_Tags (question_id, tag_id) VALUES (?, ?)'
+    );
+
     const transaction = db.transaction(() => {
       db.prepare(
         `
@@ -196,6 +222,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           if (q.options && q.options.length > 0) {
             for (const opt of q.options) {
               insertOptionStmt.run(newQuestionId, opt.option_text, opt.is_correct ? 1 : 0, opt.image_url);
+            }
+          }
+
+          if (Array.isArray(q.tags)) {
+            for (const rawTag of q.tags) {
+              const tagName = String(rawTag || '').trim();
+              if (!tagName) continue;
+              insertTagStmt.run(tagName);
+              const tagRow = selectTagStmt.get(tagName) as { id: number } | undefined;
+              if (tagRow) {
+                insertQuestionTagStmt.run(newQuestionId, tagRow.id);
+              }
             }
           }
         }

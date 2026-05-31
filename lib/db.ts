@@ -133,3 +133,206 @@ db.pragma('mmap_size = 268435456');
 
 // В development режиме Next.js сам управляет жизненным циклом
 // В production процесс Node.js автоматически закроет соединение при завершении
+
+// ===== ML SYSTEM FUNCTIONS =====
+
+/**
+ * Calculate student competency profile from their test answers
+ * Returns: { [tag_name]: competency_score (0-100), ... }
+ * @param studentId - ID of the student
+ * @param disciplineId - Optional ID of the discipline to filter tests by
+ */
+export async function getStudentCompetencyProfile(
+  studentId: number,
+  disciplineId?: number
+): Promise<Record<string, number>> {
+  try {
+    let query = `
+      SELECT 
+        t.name as tag_name,
+        COUNT(CASE WHEN ua.is_correct = 1 THEN 1 END) as correct_count,
+        COUNT(*) as total_count
+      FROM UserAnswers ua
+      JOIN Attempts a ON ua.attempt_id = a.id
+      JOIN Questions q ON ua.question_id = q.id
+      JOIN Question_Tags qt ON q.id = qt.question_id
+      JOIN Tags t ON qt.tag_id = t.id
+      JOIN Tests test ON a.test_id = test.id
+      WHERE a.user_id = ? AND a.is_completed = 1
+    `;
+    
+    const params: any[] = [studentId];
+    
+    // If disciplineId is provided, filter by discipline
+    if (disciplineId) {
+      query += ` AND test.subject_id = ?`;
+      params.push(disciplineId);
+    }
+    
+    query += ` GROUP BY t.name`;
+    
+    const results = db.prepare(query).all(...params) as Array<{
+      tag_name: string;
+      correct_count: number;
+      total_count: number;
+    }>;
+    
+    const competencyProfile: Record<string, number> = {};
+    results.forEach((row) => {
+      const percentage = (row.correct_count / row.total_count) * 100;
+      competencyProfile[row.tag_name] = parseFloat(percentage.toFixed(1));
+    });
+    
+    return competencyProfile;
+  } catch (error) {
+    console.error('Error calculating competency profile:', error);
+    return {};
+  }
+}
+
+/**
+ * Get student's average test score (normalized to 0-100 percentage)
+ * @param studentId - ID of the student
+ * @param disciplineId - Optional ID of the discipline to filter tests by
+ */
+export async function getStudentAverageScore(studentId: number, disciplineId?: number): Promise<number> {
+  try {
+    let query = `
+      SELECT AVG(CASE 
+        WHEN max_score > 0 THEN (a.score * 100.0 / max_score)
+        ELSE 0
+      END) as avg_percentage
+      FROM Attempts a
+      LEFT JOIN (
+        SELECT test_id, COALESCE(SUM(points), 0) as max_score
+        FROM Questions
+        GROUP BY test_id
+      ) q ON a.test_id = q.test_id
+      LEFT JOIN Tests t ON a.test_id = t.id
+      WHERE a.user_id = ? AND a.is_completed = 1
+    `;
+    
+    const params: any[] = [studentId];
+    
+    // If disciplineId is provided, filter by discipline
+    if (disciplineId) {
+      query += ` AND t.subject_id = ?`;
+      params.push(disciplineId);
+    }
+    
+    const result = db
+      .prepare(query)
+      .get(...params) as { avg_percentage: number | null } | undefined;
+    
+    if (!result?.avg_percentage || result.avg_percentage < 0) return 0.0;
+    if (result.avg_percentage > 100) return 100.0;
+    return parseFloat(result.avg_percentage.toFixed(1));
+  } catch (error) {
+    console.error('Error calculating average score:', error);
+    return 0.0;
+  }
+}
+
+/**
+ * Get student's activity metrics (total clicks/actions from logs)
+ */
+export async function getStudentActivityMetrics(
+  studentId: number
+): Promise<number> {
+  try {
+    const result = db
+      .prepare(
+        `
+        SELECT COUNT(*) as total_actions
+        FROM Activity_Logs
+        WHERE user_id = ?
+      `
+      )
+      .get(studentId) as { total_actions: number } | undefined;
+    
+    return result?.total_actions || 0;
+  } catch (error) {
+    console.error('Error calculating activity metrics:', error);
+    return 0;
+  }
+}
+
+/**
+ * Save student risk analytics to cache
+ */
+export async function saveStudentRiskAnalytics(
+  studentId: number,
+  riskProbability: number,
+  isAtRisk: boolean,
+  weakTags: string[],
+  reasons: string[]
+): Promise<boolean> {
+  try {
+    db.prepare(
+      `
+      INSERT INTO Student_Risk_Analytics 
+        (student_id, risk_probability, is_at_risk, weak_tags_json, reasons_json)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(student_id) DO UPDATE SET
+        risk_probability = ?,
+        is_at_risk = ?,
+        weak_tags_json = ?,
+        reasons_json = ?,
+        last_analyzed = CURRENT_TIMESTAMP
+    `
+    ).run(
+      studentId,
+      riskProbability,
+      isAtRisk ? 1 : 0,
+      JSON.stringify(weakTags),
+      JSON.stringify(reasons),
+      // ON CONFLICT updates
+      riskProbability,
+      isAtRisk ? 1 : 0,
+      JSON.stringify(weakTags),
+      JSON.stringify(reasons)
+    );
+    
+    return true;
+  } catch (error) {
+    console.error('Error saving risk analytics:', error);
+    return false;
+  }
+}
+
+/**
+ * Get cached student risk analytics
+ */
+export async function getStudentRiskAnalytics(studentId: number) {
+  try {
+    const result = db
+      .prepare(
+        `
+        SELECT * FROM Student_Risk_Analytics
+        WHERE student_id = ?
+      `
+      )
+      .get(studentId) as {
+      student_id: number;
+      risk_probability: number;
+      is_at_risk: number;
+      weak_tags_json: string;
+      reasons_json: string;
+      last_analyzed: string;
+    } | undefined;
+    
+    if (!result) return null;
+    
+    return {
+      studentId: result.student_id,
+      riskProbability: result.risk_probability,
+      isAtRisk: result.is_at_risk === 1,
+      weakTags: JSON.parse(result.weak_tags_json || '[]'),
+      reasons: JSON.parse(result.reasons_json || '[]'),
+      lastAnalyzed: result.last_analyzed,
+    };
+  } catch (error) {
+    console.error('Error retrieving risk analytics:', error);
+    return null;
+  }
+}

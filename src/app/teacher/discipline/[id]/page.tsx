@@ -813,6 +813,7 @@ export default function DisciplinePage({ params }: { params: Promise<{ id: strin
                       <ListItemButton
                         onClick={() => toggleGroup(group.id)}
                         sx={{ '@media (max-width: 768px)': { overflowX: 'scroll' } }}
+                        disableRipple
                       >
                         {isTeacher && (
                           <Checkbox

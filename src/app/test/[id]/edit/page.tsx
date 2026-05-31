@@ -23,6 +23,7 @@ import {
   Alert,
 } from '@mui/material';
 import { Add, Close, Delete, RadioButtonChecked, CheckBox, ArrowBack, Quiz } from '@mui/icons-material';
+import TagSelectionModal from './TagSelectionModal';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, use } from 'react';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -46,6 +47,7 @@ interface Question {
   order_number: number;
   image_url?: string | null; // Добавлено поле для изображения
   options: Option[];
+  tags: string[];
 }
 
 interface TestData {
@@ -62,9 +64,52 @@ export default function EditTestPage({ params }: { params: Promise<{ id: string 
   const router = useRouter();
 
   const [testData, setTestData] = useState<TestData | null>(null);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [tagModalOpen, setTagModalOpen] = useState(false);
+  const [tagModalQuestionId, setTagModalQuestionId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+
+  const isQuestionValid = (question: Question) => {
+    return Boolean(question.question_text?.trim() || question.image_url);
+  };
+
+  const isOptionValid = (option: Option) => {
+    return Boolean(option.option_text?.trim() || option.image_url);
+  };
+
+  const getValidationErrors = () => {
+    if (!testData) return ['Тест ещё не загружен.'];
+
+    const errors: string[] = [];
+
+    testData.questions.forEach((question, questionIndex) => {
+      const questionNumber = questionIndex + 1;
+
+      if (!isQuestionValid(question)) {
+        errors.push(`Вопрос ${questionNumber} должен содержать текст, изображение или оба.`);
+      }
+
+      if (!question.options.some((option) => option.is_correct)) {
+        errors.push(`Вопрос ${questionNumber} должен иметь выбранный правильный вариант ответа.`);
+      }
+
+      question.options.forEach((option, optionIndex) => {
+        if (!isOptionValid(option)) {
+          errors.push(
+            `Вопрос ${questionNumber}, вариант ${optionIndex + 1} должен содержать текст, изображение или оба.`
+          );
+        }
+      });
+    });
+
+    return errors;
+  };
+
+  const hasInvalidData = () => {
+    return getValidationErrors().length > 0;
+  };
 
   // Загрузка данных теста
   useEffect(() => {
@@ -72,9 +117,15 @@ export default function EditTestPage({ params }: { params: Promise<{ id: string 
       setLoading(true);
       try {
         const response = await fetch(`/api/test/${testId}`);
-        if (!response.ok) throw new Error('Failed to fetch test data');
-        const data = await response.json();
-        setTestData(data);
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Failed to fetch test data');
+
+        const normalizedQuestions = Array.isArray(result.questions)
+          ? result.questions.map((q: any) => ({ ...q, tags: Array.isArray(q.tags) ? q.tags : [] }))
+          : [];
+
+        setTestData({ ...result, questions: normalizedQuestions });
+        setAvailableTags(Array.isArray(result.all_tags) ? result.all_tags : []);
       } catch (error) {
         console.error(error);
         setSnackbar({ open: true, message: 'Ошибка загрузки теста', severity: 'error' });
@@ -87,6 +138,7 @@ export default function EditTestPage({ params }: { params: Promise<{ id: string 
   }, [testId]);
 
   const maxScore = testData?.questions.reduce((sum, q) => sum + (q.points || 0), 0) || 0;
+  const validationErrors = testData ? getValidationErrors() : [];
 
   const addQuestion = (type: 'single' | 'multiple') => {
     if (!testData) return;
@@ -101,6 +153,7 @@ export default function EditTestPage({ params }: { params: Promise<{ id: string 
         { id: -Date.now() - 1, option_text: '', is_correct: false },
         { id: -Date.now() - 2, option_text: '', is_correct: false },
       ],
+      tags: [],
     };
     setTestData({ ...testData, questions: [...testData.questions, newQuestion] });
   };
@@ -167,6 +220,44 @@ export default function EditTestPage({ params }: { params: Promise<{ id: string 
     });
   };
 
+  const openTagModal = (questionId: number) => {
+    setTagModalQuestionId(questionId);
+    setTagModalOpen(true);
+  };
+
+  const closeTagModal = () => {
+    setTagModalOpen(false);
+    setTagModalQuestionId(null);
+  };
+
+  const addTagToQuestion = (tag: string) => {
+    if (!testData || tag.trim() === '' || tagModalQuestionId === null) return;
+
+    const normalizedTag = tag.trim();
+    setAvailableTags((prev) => Array.from(new Set([...prev, normalizedTag])));
+    setTestData({
+      ...testData,
+      questions: testData.questions.map((q) =>
+        q.id === tagModalQuestionId
+          ? {
+              ...q,
+              tags: Array.from(new Set([...(q.tags || []), normalizedTag])),
+            }
+          : q
+      ),
+    });
+  };
+
+  const removeTagFromQuestion = (questionId: number, tag: string) => {
+    if (!testData) return;
+    setTestData({
+      ...testData,
+      questions: testData.questions.map((q) =>
+        q.id === questionId ? { ...q, tags: q.tags.filter((existingTag) => existingTag !== tag) } : q
+      ),
+    });
+  };
+
   // Новая функция для обработки изменения изображения
   const handleImageChange = (questionId: number, imageUrl: string | null) => {
     if (!testData) return;
@@ -178,6 +269,17 @@ export default function EditTestPage({ params }: { params: Promise<{ id: string 
 
   const handleSave = async () => {
     if (!testData) return;
+
+    const validationErrors = getValidationErrors();
+    if (validationErrors.length > 0) {
+      setSnackbar({
+        open: true,
+        message: validationErrors[0],
+        severity: 'error',
+      });
+      return;
+    }
+
     setSaving(true);
 
     const dataToSave = {
@@ -185,6 +287,7 @@ export default function EditTestPage({ params }: { params: Promise<{ id: string 
       questions: testData.questions.map((q, index) => ({
         ...q,
         order_number: index,
+        tags: q.tags || [],
       })),
     };
 
@@ -353,6 +456,7 @@ export default function EditTestPage({ params }: { params: Promise<{ id: string 
                   <ImageUpload
                     currentImageUrl={question.image_url || undefined}
                     onImageChange={(url) => handleImageChange(question.id, url)}
+                    uploadType="question"
                   />
                 </Box>
 
@@ -363,6 +467,41 @@ export default function EditTestPage({ params }: { params: Promise<{ id: string 
                   onChange={(e) => handleQuestionChange(question.id, 'points', e.target.value)}
                   sx={{ width: 140 }}
                 />
+                <Box>
+                  <Typography
+                    variant="subtitle2"
+                    sx={{ mb: 1 }}
+                  >
+                    Теги вопроса:
+                  </Typography>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: 1,
+                      mb: 1,
+                      maxWidth: '100%',
+                      overflowX: 'auto',
+                      py: 0.5,
+                    }}
+                  >
+                    {question.tags.map((tag) => (
+                      <Chip
+                        key={tag}
+                        label={tag}
+                        variant="outlined"
+                        onDelete={() => removeTagFromQuestion(question.id, tag)}
+                      />
+                    ))}
+                    <Chip
+                      label="Добавить тег"
+                      color="primary"
+                      variant="outlined"
+                      onClick={() => openTagModal(question.id)}
+                      sx={{ cursor: 'pointer' }}
+                    />
+                  </Box>
+                </Box>
                 <Typography
                   variant="subtitle2"
                   sx={{ mt: 1 }}
@@ -446,6 +585,32 @@ export default function EditTestPage({ params }: { params: Promise<{ id: string 
           </Button>
         </Box>
 
+        {validationErrors.length > 0 && (
+          <Box sx={{ mb: 2, p: 2, borderRadius: 1, bgcolor: 'rgba(255, 0, 0, 0.05)' }}>
+            <Typography
+              variant="subtitle2"
+              color="error"
+              sx={{ mb: 1, fontWeight: 700 }}
+            >
+              Причины невозможности применить изменения:
+            </Typography>
+            <Stack
+              component="ul"
+              sx={{ pl: 3, m: 0, color: 'error.main' }}
+            >
+              {validationErrors.map((reason, index) => (
+                <Typography
+                  key={index}
+                  component="li"
+                  sx={{ display: 'list-item', mb: 0.5 }}
+                >
+                  {reason}
+                </Typography>
+              ))}
+            </Stack>
+          </Box>
+        )}
+
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
           <Button
             variant="outlined"
@@ -457,11 +622,19 @@ export default function EditTestPage({ params }: { params: Promise<{ id: string 
           <Button
             variant="contained"
             onClick={handleSave}
-            disabled={saving || testData.questions.length === 0}
+            disabled={saving || testData?.questions.length === 0 || hasInvalidData()}
           >
             {saving ? <CircularProgress size={24} /> : 'Применить изменения'}
           </Button>
         </Box>
+
+        <TagSelectionModal
+          open={tagModalOpen}
+          onClose={closeTagModal}
+          availableTags={availableTags}
+          questionTags={testData?.questions.find((q) => q.id === tagModalQuestionId)?.tags || []}
+          onAddTag={addTagToQuestion}
+        />
 
         <Snackbar
           open={snackbar.open}

@@ -502,7 +502,7 @@ export default function StudentDisciplinePage({ params }: { params: Promise<{ id
                                 </TableCell>
                                 <TableCell colSpan={2}>
                                   <Box
-                                    width="150px"
+                                    width="100%"
                                     bgcolor="#e0e0e0"
                                     borderRadius={1}
                                   >
@@ -598,7 +598,7 @@ export default function StudentDisciplinePage({ params }: { params: Promise<{ id
                             </TableCell>
                             <TableCell colSpan={2}>
                               <Box
-                                width="150px"
+                                width="100%"
                                 bgcolor="#e0e0e0"
                                 borderRadius={1}
                               >

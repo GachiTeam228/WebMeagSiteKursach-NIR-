@@ -18,6 +18,7 @@ interface QuestionData {
   order_number: number;
   image_url?: string | null; // Добавлено поле для изображения
   options?: AnswerOptionData[];
+  tags?: string[];
 }
 
 interface TestData {
@@ -59,6 +60,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!title || !Array.isArray(questions)) {
       return NextResponse.json({ error: 'Invalid request body format' }, { status: 400 });
     }
+
+    const insertTagStmt = db.prepare('INSERT OR IGNORE INTO Tags (name) VALUES (?)');
+    const selectTagStmt = db.prepare('SELECT id FROM Tags WHERE name = ?');
+    const insertQuestionTagStmt = db.prepare(
+      'INSERT OR IGNORE INTO Question_Tags (question_id, tag_id) VALUES (?, ?)'
+    );
 
     // 3. Выполнение операции в транзакции
     const transaction = db.transaction(() => {
@@ -107,6 +114,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           if (q.options && q.options.length > 0) {
             for (const opt of q.options) {
               insertOptionStmt.run(newQuestionId, opt.option_text, opt.is_correct ? 1 : 0);
+            }
+          }
+
+          if (Array.isArray(q.tags)) {
+            for (const rawTag of q.tags) {
+              const tagName = String(rawTag || '').trim();
+              if (!tagName) continue;
+              insertTagStmt.run(tagName);
+              const tagRow = selectTagStmt.get(tagName) as { id: number } | undefined;
+              if (tagRow) {
+                insertQuestionTagStmt.run(newQuestionId, tagRow.id);
+              }
             }
           }
         }

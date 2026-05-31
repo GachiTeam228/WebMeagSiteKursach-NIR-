@@ -195,6 +195,17 @@ db.exec(`
     last_analyzed TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (student_id) REFERENCES Users(id) ON DELETE CASCADE
   );
+
+  -- 17. Логи активности студентов
+  -- Записывает действия студента в системе (просмотр лекции, открытие теста и т.д.)
+  CREATE TABLE IF NOT EXISTS Activity_Logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    action_type TEXT NOT NULL,          -- Например: 'VIEW_COURSE', 'START_TEST', 'READ_MATERIAL'
+    entity_id INTEGER,                  -- ID теста или предмета, с которым взаимодействовали
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE
+  );
 `);
 
 // Создаём индексы для быстрого поиска
@@ -218,6 +229,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_question_tags_question ON Question_Tags(question_id);
   CREATE INDEX IF NOT EXISTS idx_question_tags_tag ON Question_Tags(tag_id);
   CREATE INDEX IF NOT EXISTS idx_useranswers_correct ON UserAnswers(is_correct);
+  CREATE INDEX IF NOT EXISTS idx_activity_user ON Activity_Logs(user_id);
 `);
 
 console.log('Database initialized successfully!');
